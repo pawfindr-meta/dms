@@ -1,53 +1,31 @@
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 @import "tailwindcss";
 
+:root {
+  --font-fluid-title: clamp(1.1rem, 0.9rem + 1vw, 1.75rem);
+  --font-fluid-body: clamp(0.75rem, 0.7rem + 0.25vw, 0.9rem);
+}
+
 body {
   font-family: 'Plus Jakarta Sans', sans-serif;
-  background-color: #09090b;
+  background-color: #000000;
   color: #f4f4f5;
   margin: 0;
   padding: 0;
+  height: 100dvh;
+  width: 100vw;
+  overflow: hidden;
 }
 
-/* ==========================================================================
-   INVISIBLE SCROLLBAR ENGINE (Brave, Chrome, Safari, Edge, Firefox, Opera)
-   ========================================================================== */
-
-/* 1. Global reset for all elements, html, and body */
-html,
-body,
-* {
-  scrollbar-width: none !important;        /* Firefox, Brave modern, & standard */
-  -ms-overflow-style: none !important;     /* IE and Edge Legacy */
+/* Invisible Scrollbar System */
+html, body, * {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
 }
 
-/* 2. WebKit / Blink pseudo-elements (Brave, Chrome, Safari, Edge, Opera) */
-*::-webkit-scrollbar,
-html::-webkit-scrollbar,
-body::-webkit-scrollbar {
+*::-webkit-scrollbar {
   display: none !important;
   width: 0px !important;
   height: 0px !important;
   background: transparent !important;
-}
-
-*::-webkit-scrollbar-thumb,
-*::-webkit-scrollbar-track,
-*::-webkit-scrollbar-corner {
-  display: none !important;
-  background: transparent !important;
-  border: none !important;
-}
-
-/* 3. Utility class for explicit overrides */
-@layer utilities {
-  .no-scrollbar {
-    -ms-overflow-style: none !important;
-    scrollbar-width: none !important;
-  }
-  .no-scrollbar::-webkit-scrollbar {
-    display: none !important;
-    width: 0 !important;
-    height: 0 !important;
-  }
 }

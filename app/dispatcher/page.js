@@ -38,7 +38,7 @@ export default function DispatcherPage() {
       if (teamsRes.ok) setTeams(await teamsRes.json());
       if (techsRes.ok) setTechs(await techsRes.json());
     } catch (err) {
-      console.error(err);
+      console.error('Failed to synchronize dispatch telemetry:', err);
     } finally {
       setLoading(false);
     }
@@ -63,23 +63,32 @@ export default function DispatcherPage() {
           assigned_team_id: parseInt(assignTeamId, 10),
         }),
       });
-      if (res.ok) {
-        setSelectedTask(null);
-        setAssignTeamId('');
-        loadData();
-      }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || `Assignment failed (${res.status})`);
+
+      setSelectedTask(null);
+      setAssignTeamId('');
+      loadData();
+    } catch (err) {
+      alert(err.message);
     } finally {
       setIsAssigning(false);
     }
   };
 
   const handleAcknowledge = async (taskId) => {
-    const res = await fetch(`/api/tasks/${taskId}/status`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ new_status: 'ACKNOWLEDGED' }),
-    });
-    if (res.ok) loadData();
+    try {
+      const res = await fetch(`/api/tasks/${taskId}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ new_status: 'ACKNOWLEDGED' }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || `Acknowledge failed (${res.status})`);
+      loadData();
+    } catch (err) {
+      alert(err.message);
+    }
   };
 
   const handleSaveRoster = async (e) => {
@@ -92,10 +101,13 @@ export default function DispatcherPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ team_name: editingTeam.team_name, member_ids: selectedTechs }),
       });
-      if (res.ok) {
-        setRosterModalOpen(false);
-        loadData();
-      }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || `Roster update failed (${res.status})`);
+
+      setRosterModalOpen(false);
+      loadData();
+    } catch (err) {
+      alert(err.message);
     } finally {
       setSavingRoster(false);
     }
@@ -104,38 +116,45 @@ export default function DispatcherPage() {
   const handleResolveReassign = async (e) => {
     e.preventDefault();
     if (!reassignTask) return;
-    const res = await fetch(`/api/tasks/${reassignTask.task_id}/reassign-resolve`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action: reassignAction,
-        resolution: reassignResolution,
-        new_team_id: newTeamId ? parseInt(newTeamId, 10) : null,
-        remarks: reassignRemarks,
-      }),
-    });
-    if (res.ok) {
+    try {
+      const res = await fetch(`/api/tasks/${reassignTask.task_id}/reassign-resolve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: reassignAction,
+          resolution: reassignResolution,
+          new_team_id: newTeamId ? parseInt(newTeamId, 10) : null,
+          remarks: reassignRemarks,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || `Reassignment resolution failed (${res.status})`);
+
       setReassignTask(null);
       loadData();
+    } catch (err) {
+      alert(err.message);
     }
   };
 
   return (
-    <div className="h-screen w-screen bg-black text-white flex flex-col overflow-hidden font-sans">
+    <div className="h-dvh w-screen bg-black text-white flex flex-col overflow-hidden font-sans">
       <Navbar user={{ name: 'Head Dispatcher', role: 'DISPATCHER' }} />
 
-      <main className="flex-1 min-h-0 w-full p-6 md:p-8 flex flex-col gap-6">
+      <main className="flex-1 min-h-0 w-full p-4 sm:p-6 md:p-8 flex flex-col gap-4 sm:gap-6">
         {/* Active Teams Strip */}
-        <div className="border border-white/10 bg-white/[0.01] p-6 shrink-0 space-y-4">
-          <div className="flex justify-between items-center border-b border-white/10 pb-3">
+        <div className="border border-white/10 bg-white/[0.01] p-4 sm:p-6 shrink-0 space-y-3 sm:space-y-4">
+          <div className="flex justify-between items-center border-b border-white/10 pb-2.5 sm:pb-3">
             <div>
-              <span className="text-[11px] font-mono uppercase tracking-[0.3em] text-white/40">Field Units</span>
-              <h2 className="text-base font-black uppercase tracking-tight">Active Workload Distribution</h2>
+              <span className="text-[10px] sm:text-[11px] font-mono uppercase tracking-[0.3em] text-white/40">Field Units</span>
+              <h2 className="text-sm sm:text-base font-black uppercase tracking-tight">Active Workload Distribution</h2>
             </div>
-            <span className="text-[11px] font-mono uppercase tracking-widest text-white/40">Click unit to modify roster</span>
+            <span className="text-[10px] sm:text-[11px] font-mono uppercase tracking-widest text-white/40 hidden sm:block">
+              Click unit to modify roster
+            </span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 max-h-48 overflow-y-auto sm:max-h-none sm:overflow-visible">
             {teams.map((t) => (
               <div
                 key={t.team_id}
@@ -144,15 +163,15 @@ export default function DispatcherPage() {
                   setSelectedTechs(t.members ? t.members.map((m) => m.tech_id) : []);
                   setRosterModalOpen(true);
                 }}
-                className="p-5 border border-white/10 bg-black hover:bg-white hover:text-black transition-all duration-300 cursor-pointer flex flex-col justify-between group space-y-3"
+                className="p-3.5 sm:p-5 border border-white/10 bg-black hover:bg-white hover:text-black transition-all duration-300 cursor-pointer flex flex-col justify-between group space-y-2.5 sm:space-y-3"
               >
-                <div className="flex justify-between items-start">
-                  <span className="font-black uppercase text-sm md:text-base tracking-tight">{t.team_name}</span>
-                  <span className="px-3 py-1 border border-emerald-400 text-emerald-400 group-hover:bg-black group-hover:text-emerald-400 text-xs font-mono font-bold">
+                <div className="flex justify-between items-start gap-2">
+                  <span className="font-black uppercase text-xs sm:text-sm md:text-base tracking-tight truncate">{t.team_name}</span>
+                  <span className="px-2.5 sm:px-3 py-0.5 sm:py-1 border border-emerald-400 text-emerald-400 group-hover:bg-black group-hover:text-emerald-400 text-[10px] sm:text-xs font-mono font-bold shrink-0">
                     {t.active_workload} Active
                   </span>
                 </div>
-                <div className="text-xs font-mono text-white/50 group-hover:text-black/70 truncate">
+                <div className="text-[11px] sm:text-xs font-mono text-white/50 group-hover:text-black/70 truncate">
                   {t.members?.length > 0 ? t.members.map((m) => m.tech_id).join(', ') : 'Unassigned'}
                 </div>
               </div>
@@ -162,21 +181,21 @@ export default function DispatcherPage() {
 
         {/* Live Task Matrix */}
         <div className="flex-1 min-h-0 border border-white/10 flex flex-col bg-white/[0.01]">
-          <div className="p-6 flex justify-between items-center border-b border-white/10 shrink-0">
+          <div className="p-4 sm:p-6 flex justify-between items-center border-b border-white/10 shrink-0">
             <div>
-              <span className="text-[11px] font-mono uppercase tracking-[0.3em] text-white/40">Real-Time Routing</span>
-              <h2 className="text-xl font-black uppercase tracking-tight">Active Dispatch Matrix ({tasks.length})</h2>
+              <span className="text-[10px] sm:text-[11px] font-mono uppercase tracking-[0.3em] text-white/40">Real-Time Routing</span>
+              <h2 className="text-base sm:text-xl font-black uppercase tracking-tight">Active Dispatch Matrix ({tasks.length})</h2>
             </div>
             <button
               onClick={loadData}
-              className="px-4 py-2 border border-white/20 text-xs font-mono uppercase tracking-widest hover:bg-white hover:text-black transition cursor-pointer"
+              className="px-3 sm:px-4 py-1.5 sm:py-2 border border-white/20 text-xs font-mono uppercase tracking-widest hover:bg-white hover:text-black transition cursor-pointer"
             >
               Refresh
             </button>
           </div>
 
-          <div className="flex-1 overflow-auto">
-            <table className="w-full text-left text-sm font-mono">
+          <div className="flex-1 min-h-0 overflow-auto">
+            <table className="min-w-[800px] w-full text-left text-sm font-mono">
               <thead className="sticky top-0 bg-black/95 z-10">
                 <tr className="border-b border-white/10 text-[11px] uppercase tracking-[0.25em] text-white/40 bg-white/[0.02]">
                   <th className="p-4">Task ID</th>
@@ -191,10 +210,10 @@ export default function DispatcherPage() {
               <tbody className="divide-y divide-white/10">
                 {tasks.map((t) => (
                   <tr key={t.task_id} className="hover:bg-white/[0.02] transition">
-                    <td className="p-4 font-bold text-emerald-400 text-base">{t.task_id}</td>
+                    <td className="p-4 font-bold text-emerald-400 text-sm sm:text-base">{t.task_id}</td>
                     <td className="p-4 uppercase font-bold text-white">{t.task_type}</td>
                     <td className="p-4">
-                      <span className={`px-3 py-1 border text-xs font-black uppercase tracking-wider ${
+                      <span className={`px-2.5 sm:px-3 py-0.5 sm:py-1 border text-[10px] sm:text-xs font-black uppercase tracking-wider ${
                         t.status === 'NEW' ? 'border-white/20 text-white/70' :
                         t.status === 'ASSIGNED' ? 'border-amber-400/50 text-amber-400' :
                         t.status === 'IN_PROGRESS' ? 'border-blue-400/50 text-blue-400' :
@@ -205,14 +224,14 @@ export default function DispatcherPage() {
                         {t.status}
                       </span>
                     </td>
-                    <td className="p-4 text-white uppercase font-bold text-base">{t.client_name}</td>
+                    <td className="p-4 text-white uppercase font-bold text-sm sm:text-base">{t.client_name}</td>
                     <td className="p-4 text-white/80 font-bold">{t.team_name || '—'}</td>
                     <td className="p-4 text-white/60 max-w-sm truncate">{t.address}</td>
-                    <td className="p-4 text-right space-x-3 whitespace-nowrap">
+                    <td className="p-4 text-right space-x-2.5 sm:space-x-3 whitespace-nowrap">
                       {['NEW', 'RELEASED', 'ASSIGNED'].includes(t.status) && (
                         <button
                           onClick={() => setSelectedTask(t)}
-                          className="px-4 py-2 bg-white text-black font-black uppercase text-xs tracking-widest hover:bg-white/80 transition cursor-pointer"
+                          className="px-3.5 sm:px-4 py-1.5 sm:py-2 bg-white text-black font-black uppercase text-[10px] sm:text-xs tracking-widest hover:bg-white/80 transition cursor-pointer"
                         >
                           {t.status === 'ASSIGNED' ? 'Reassign' : 'Assign Unit'}
                         </button>
@@ -221,7 +240,7 @@ export default function DispatcherPage() {
                       {t.status === 'REASSIGNMENT_REQUESTED' && (
                         <button
                           onClick={() => setReassignTask(t)}
-                          className="px-4 py-2 border border-red-500 text-red-400 hover:bg-red-500 hover:text-black font-black uppercase text-xs tracking-widest transition cursor-pointer"
+                          className="px-3.5 sm:px-4 py-1.5 sm:py-2 border border-red-500 text-red-400 hover:bg-red-500 hover:text-black font-black uppercase text-[10px] sm:text-xs tracking-widest transition cursor-pointer"
                         >
                           Review Incident
                         </button>
@@ -230,7 +249,7 @@ export default function DispatcherPage() {
                       {t.status === 'COMPLETED' && (
                         <button
                           onClick={() => handleAcknowledge(t.task_id)}
-                          className="px-4 py-2 border border-emerald-400 text-emerald-400 hover:bg-emerald-400 hover:text-black font-black uppercase text-xs tracking-widest transition cursor-pointer"
+                          className="px-3.5 sm:px-4 py-1.5 sm:py-2 border border-emerald-400 text-emerald-400 hover:bg-emerald-400 hover:text-black font-black uppercase text-[10px] sm:text-xs tracking-widest transition cursor-pointer"
                         >
                           Acknowledge
                         </button>
@@ -246,17 +265,17 @@ export default function DispatcherPage() {
 
       {/* ASSIGN TASK MODAL */}
       {selectedTask && (
-        <div className="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center p-6 z-50">
-          <div className="max-w-lg w-full border border-white/20 bg-black p-8 space-y-6 shadow-2xl">
-            <h3 className="text-lg font-black uppercase tracking-tight text-white">Route Job: {selectedTask.task_id}</h3>
-            <p className="text-sm font-mono text-white/60">{selectedTask.client_name} • {selectedTask.address}</p>
+        <div className="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 sm:p-6 z-50">
+          <div className="max-w-lg w-full border border-white/20 bg-black p-6 sm:p-8 space-y-6 shadow-2xl">
+            <h3 className="text-base sm:text-lg font-black uppercase tracking-tight text-white">Route Job: {selectedTask.task_id}</h3>
+            <p className="text-xs sm:text-sm font-mono text-white/60">{selectedTask.client_name} • {selectedTask.address}</p>
 
             <form onSubmit={handleAssignTeam} className="space-y-4 font-mono">
               <select
                 required
                 value={assignTeamId}
                 onChange={(e) => setAssignTeamId(e.target.value)}
-                className="w-full px-4 py-3 bg-black border border-white/10 text-sm text-white uppercase focus:outline-none focus:border-white"
+                className="w-full px-4 py-2.5 sm:py-3 bg-black border border-white/10 text-sm text-white uppercase focus:outline-none focus:border-white"
               >
                 <option value="">-- Select Field Unit --</option>
                 {teams.map((t) => (
@@ -270,14 +289,14 @@ export default function DispatcherPage() {
                 <button
                   type="button"
                   onClick={() => setSelectedTask(null)}
-                  className="px-5 py-2.5 border border-white/20 text-xs uppercase tracking-widest text-white"
+                  className="px-4 sm:px-5 py-2 sm:py-2.5 border border-white/20 text-xs uppercase tracking-widest text-white"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isAssigning}
-                  className="px-6 py-2.5 bg-white text-black text-xs font-black uppercase tracking-widest hover:bg-white/80 cursor-pointer"
+                  className="px-5 sm:px-6 py-2 sm:py-2.5 bg-white text-black text-xs font-black uppercase tracking-widest hover:bg-white/80 cursor-pointer"
                 >
                   {isAssigning ? 'Routing...' : 'Confirm Assignment'}
                 </button>
@@ -289,11 +308,11 @@ export default function DispatcherPage() {
 
       {/* ROSTER MODAL */}
       {rosterModalOpen && editingTeam && (
-        <div className="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center p-6 z-50">
-          <div className="max-w-lg w-full border border-white/20 bg-black p-8 space-y-6 shadow-2xl">
-            <h3 className="text-lg font-black uppercase tracking-tight text-white">Unit Roster: {editingTeam.team_name}</h3>
+        <div className="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 sm:p-6 z-50">
+          <div className="max-w-lg w-full border border-white/20 bg-black p-6 sm:p-8 space-y-6 shadow-2xl">
+            <h3 className="text-base sm:text-lg font-black uppercase tracking-tight text-white">Unit Roster: {editingTeam.team_name}</h3>
             <form onSubmit={handleSaveRoster} className="space-y-4 font-mono">
-              <div className="max-h-64 overflow-y-auto border border-white/10 p-3 space-y-2">
+              <div className="max-h-60 sm:max-h-64 overflow-y-auto border border-white/10 p-3 space-y-2">
                 {techs.map((t) => (
                   <label key={t.tech_id} className="flex items-center gap-3 p-2 hover:bg-white/[0.03] text-sm cursor-pointer">
                     <input
@@ -311,14 +330,14 @@ export default function DispatcherPage() {
                 <button
                   type="button"
                   onClick={() => setRosterModalOpen(false)}
-                  className="px-5 py-2.5 border border-white/20 text-xs uppercase tracking-widest text-white"
+                  className="px-4 sm:px-5 py-2 sm:py-2.5 border border-white/20 text-xs uppercase tracking-widest text-white"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={savingRoster}
-                  className="px-6 py-2.5 bg-white text-black text-xs font-black uppercase tracking-widest hover:bg-white/80 cursor-pointer"
+                  className="px-5 sm:px-6 py-2 sm:py-2.5 bg-white text-black text-xs font-black uppercase tracking-widest hover:bg-white/80 cursor-pointer"
                 >
                   {savingRoster ? 'Saving...' : 'Update Roster'}
                 </button>
@@ -330,22 +349,22 @@ export default function DispatcherPage() {
 
       {/* REASSIGN REVIEW MODAL */}
       {reassignTask && (
-        <div className="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center p-6 z-50">
-          <div className="max-w-lg w-full border border-red-500/40 bg-black p-8 space-y-6 shadow-2xl">
-            <h3 className="text-lg font-black uppercase tracking-tight text-red-400">Incident Review: {reassignTask.task_id}</h3>
+        <div className="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 sm:p-6 z-50">
+          <div className="max-w-lg w-full border border-red-500/40 bg-black p-6 sm:p-8 space-y-6 shadow-2xl">
+            <h3 className="text-base sm:text-lg font-black uppercase tracking-tight text-red-400">Incident Review: {reassignTask.task_id}</h3>
             <form onSubmit={handleResolveReassign} className="space-y-4 font-mono">
               <div className="grid grid-cols-2 gap-3">
                 <button
                   type="button"
                   onClick={() => setReassignAction('APPROVED')}
-                  className={`py-2.5 text-xs uppercase tracking-widest font-black border ${reassignAction === 'APPROVED' ? 'bg-white text-black border-white' : 'border-white/20 text-white'}`}
+                  className={`py-2 sm:py-2.5 text-xs uppercase tracking-widest font-black border ${reassignAction === 'APPROVED' ? 'bg-white text-black border-white' : 'border-white/20 text-white'}`}
                 >
                   Approve Reassign
                 </button>
                 <button
                   type="button"
                   onClick={() => setReassignAction('DENIED')}
-                  className={`py-2.5 text-xs uppercase tracking-widest font-black border ${reassignAction === 'DENIED' ? 'bg-red-500 text-black border-red-500' : 'border-white/20 text-white'}`}
+                  className={`py-2 sm:py-2.5 text-xs uppercase tracking-widest font-black border ${reassignAction === 'DENIED' ? 'bg-red-500 text-black border-red-500' : 'border-white/20 text-white'}`}
                 >
                   Deny Request
                 </button>
@@ -356,7 +375,7 @@ export default function DispatcherPage() {
                   required
                   value={newTeamId}
                   onChange={(e) => setNewTeamId(e.target.value)}
-                  className="w-full px-4 py-3 bg-black border border-white/10 text-sm text-white uppercase focus:outline-none focus:border-white"
+                  className="w-full px-4 py-2.5 sm:py-3 bg-black border border-white/10 text-sm text-white uppercase focus:outline-none focus:border-white"
                 >
                   <option value="">-- Choose New Unit --</option>
                   {teams.map((t) => (
@@ -372,20 +391,20 @@ export default function DispatcherPage() {
                 value={reassignRemarks}
                 onChange={(e) => setReassignRemarks(e.target.value)}
                 placeholder="Operational remarks..."
-                className="w-full px-4 py-3 bg-black border border-white/10 text-sm text-white focus:outline-none focus:border-white"
+                className="w-full px-4 py-2.5 sm:py-3 bg-black border border-white/10 text-sm text-white focus:outline-none focus:border-white"
               />
 
               <div className="flex justify-end gap-3 pt-4 border-t border-white/10">
                 <button
                   type="button"
                   onClick={() => setReassignTask(null)}
-                  className="px-5 py-2.5 border border-white/20 text-xs uppercase tracking-widest text-white"
+                  className="px-4 sm:px-5 py-2 sm:py-2.5 border border-white/20 text-xs uppercase tracking-widest text-white"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2.5 bg-white text-black text-xs font-black uppercase tracking-widest hover:bg-white/80 cursor-pointer"
+                  className="px-5 sm:px-6 py-2 sm:py-2.5 bg-white text-black text-xs font-black uppercase tracking-widest hover:bg-white/80 cursor-pointer"
                 >
                   Commit Order
                 </button>
