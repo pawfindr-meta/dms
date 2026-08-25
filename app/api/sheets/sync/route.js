@@ -4,6 +4,9 @@ import { google } from 'googleapis';
 import path from 'path';
 import fs from 'fs';
 
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
 const sql = neon(process.env.DATABASE_URL);
 
 export async function POST() {
@@ -20,7 +23,7 @@ export async function POST() {
     let auth;
     const keyPath = path.resolve(process.cwd(), 'service-account.json');
 
-    // 1. Production (Vercel): Base64 Encoded Service Account JSON
+    // 1. Vercel Production (Base64 Secret)
     if (process.env.GOOGLE_SERVICE_ACCOUNT_KEY_BASE64) {
       const decodedJson = Buffer.from(
         process.env.GOOGLE_SERVICE_ACCOUNT_KEY_BASE64,
@@ -33,7 +36,7 @@ export async function POST() {
         scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
       });
     } 
-    // 2. Local Fallback: Direct service-account.json file
+    // 2. Local Development (File fallback)
     else if (fs.existsSync(keyPath)) {
       auth = new google.auth.GoogleAuth({
         keyFile: keyPath,
