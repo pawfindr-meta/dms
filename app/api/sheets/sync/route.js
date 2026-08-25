@@ -12,7 +12,7 @@ export async function POST() {
 
     if (!spreadsheetId) {
       return NextResponse.json(
-        { error: 'GOOGLE_SHEETS_SPREADSHEET_ID is missing in environment variables' },
+        { error: 'GOOGLE_SHEETS_SPREADSHEET_ID missing in environment variables' },
         { status: 500 }
       );
     }
@@ -20,37 +20,28 @@ export async function POST() {
     let auth;
     const keyPath = path.resolve(process.cwd(), 'service-account.json');
 
-    // 1. Local Development (service-account.json file)
-    if (fs.existsSync(keyPath)) {
+    // 1. Production (Vercel): Base64 Encoded Service Account JSON
+    if (process.env.GOOGLE_SERVICE_ACCOUNT_KEY_BASE64) {
+      const decodedJson = Buffer.from(
+        process.env.GOOGLE_SERVICE_ACCOUNT_KEY_BASE64,
+        'base64'
+      ).toString('utf-8');
+      const credentials = JSON.parse(decodedJson);
+
+      auth = new google.auth.GoogleAuth({
+        credentials,
+        scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
+      });
+    } 
+    // 2. Local Fallback: Direct service-account.json file
+    else if (fs.existsSync(keyPath)) {
       auth = new google.auth.GoogleAuth({
         keyFile: keyPath,
         scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
       });
-    } 
-    // 2. Vercel / Production (Environment Variables)
-    else if (process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL && process.env.GOOGLE_PRIVATE_KEY) {
-      // Clean private key: remove wrapping quotes and normalize all newline variations
-      let formattedKey = process.env.GOOGLE_PRIVATE_KEY;
-      
-      // Strip leading/trailing double or single quotes if present
-      if ((formattedKey.startsWith('"') && formattedKey.endsWith('"')) ||
-          (formattedKey.startsWith("'") && formattedKey.endsWith("'"))) {
-        formattedKey = formattedKey.slice(1, -1);
-      }
-      
-      // Convert escaped \n into real newlines
-      formattedKey = formattedKey.replace(/\\n/g, '\n');
-
-      auth = new google.auth.GoogleAuth({
-        credentials: {
-          client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL.trim(),
-          private_key: formattedKey,
-        },
-        scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
-      });
     } else {
       return NextResponse.json(
-        { error: 'No valid Google credentials configured on server' },
+        { error: 'No Google Service Account credentials found on server' },
         { status: 500 }
       );
     }
