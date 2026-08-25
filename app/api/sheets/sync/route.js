@@ -12,33 +12,54 @@ export async function POST() {
 
     if (!spreadsheetId) {
       return NextResponse.json(
-        { error: 'GOOGLE_SHEETS_SPREADSHEET_ID missing in environment variables' },
+        { error: 'GOOGLE_SHEETS_SPREADSHEET_ID is missing in environment variables' },
         { status: 500 }
       );
     }
 
+    let auth;
     const keyPath = path.resolve(process.cwd(), 'service-account.json');
 
-    if (!fs.existsSync(keyPath)) {
+    // 1. Local Development (service-account.json file)
+    if (fs.existsSync(keyPath)) {
+      auth = new google.auth.GoogleAuth({
+        keyFile: keyPath,
+        scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
+      });
+    } 
+    // 2. Vercel / Production (Environment Variables)
+    else if (process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL && process.env.GOOGLE_PRIVATE_KEY) {
+      // Clean private key: remove wrapping quotes and normalize all newline variations
+      let formattedKey = process.env.GOOGLE_PRIVATE_KEY;
+      
+      // Strip leading/trailing double or single quotes if present
+      if ((formattedKey.startsWith('"') && formattedKey.endsWith('"')) ||
+          (formattedKey.startsWith("'") && formattedKey.endsWith("'"))) {
+        formattedKey = formattedKey.slice(1, -1);
+      }
+      
+      // Convert escaped \n into real newlines
+      formattedKey = formattedKey.replace(/\\n/g, '\n');
+
+      auth = new google.auth.GoogleAuth({
+        credentials: {
+          client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL.trim(),
+          private_key: formattedKey,
+        },
+        scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
+      });
+    } else {
       return NextResponse.json(
-        { error: `service-account.json not found in project root: ${keyPath}` },
+        { error: 'No valid Google credentials configured on server' },
         { status: 500 }
       );
     }
 
-    const auth = new google.auth.GoogleAuth({
-      keyFile: keyPath,
-      scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
-    });
-
     const sheets = google.sheets({ version: 'v4', auth });
-
-    // Target the GENT tab
     const range = "'GENT'!A2:G";
     const response = await sheets.spreadsheets.values.get({ spreadsheetId, range });
     const rows = response.data.values || [];
 
-    // Deduplicate by account_number
     const clientMap = new Map();
 
     for (const row of rows) {
@@ -83,7 +104,6 @@ export async function POST() {
       issues.push(null);
     }
 
-    // High-performance batch upsert into PostgreSQL TEXT columns
     await sql`
       INSERT INTO clients (account_number, client_id, client_name, contact_number, address, landmark, issue)
       SELECT * FROM UNNEST(
