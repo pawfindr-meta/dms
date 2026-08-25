@@ -1,26 +1,53 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  background-color: #09090b;
+  color: #f4f4f5;
+  margin: 0;
+  padding: 0;
+}
+
+/* ==========================================================================
+   INVISIBLE SCROLLBAR ENGINE (Brave, Chrome, Safari, Edge, Firefox, Opera)
+   ========================================================================== */
+
+/* 1. Global reset for all elements, html, and body */
+html,
+body,
+* {
+  scrollbar-width: none !important;        /* Firefox, Brave modern, & standard */
+  -ms-overflow-style: none !important;     /* IE and Edge Legacy */
+}
+
+/* 2. WebKit / Blink pseudo-elements (Brave, Chrome, Safari, Edge, Opera) */
+*::-webkit-scrollbar,
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  display: none !important;
+  width: 0px !important;
+  height: 0px !important;
+  background: transparent !important;
+}
+
+*::-webkit-scrollbar-thumb,
+*::-webkit-scrollbar-track,
+*::-webkit-scrollbar-corner {
+  display: none !important;
+  background: transparent !important;
+  border: none !important;
+}
+
+/* 3. Utility class for explicit overrides */
+@layer utilities {
+  .no-scrollbar {
+    -ms-overflow-style: none !important;
+    scrollbar-width: none !important;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+  }
 }
