@@ -1,15 +1,20 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Navbar from '@/components/Navbar';
 
 export default function CSRPage() {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [syncingSheet, setSyncingSheet] = useState(false);
   const [message, setMessage] = useState('');
+  const [lastSyncTime, setLastSyncTime] = useState(null);
 
+  // Raw Parser Buffer
   const [rawReport, setRawReport] = useState('');
+
+  // Form State
   const [taskType, setTaskType] = useState('REPAIR');
   const [accountNumber, setAccountNumber] = useState('');
   const [clientId, setClientId] = useState('');
@@ -19,6 +24,11 @@ export default function CSRPage() {
   const [landmark, setLandmark] = useState('');
   const [issue, setIssue] = useState('');
   const [isUnverified, setIsUnverified] = useState(false);
+
+  // Autocomplete Dropdown State
+  const [searchResults, setSearchResults] = useState([]);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const searchContainerRef = useRef(null);
 
   const loadTasks = async () => {
     try {
@@ -31,38 +41,207 @@ export default function CSRPage() {
     }
   };
 
+  const handleSyncGoogleSheets = async (isManual = true) => {
+    setSyncingSheet(true);
+    if (isManual) setMessage('SHEETS // Contacting Google Sheets API bridge...');
+
+    try {
+      const res = await fetch('/api/sheets/sync', { method: 'POST' });
+      if (!res.ok) {
+        let errMsg = `Sheets sync failed with status ${res.status}`;
+        try {
+          const errData = await res.json();
+          if (errData?.error) errMsg = errData.error;
+        } catch (_) {}
+        throw new Error(errMsg);
+      }
+
+      const data = await res.json();
+      setLastSyncTime(new Date());
+      setMessage(`SHEETS SYNCHRONIZED // ${data?.importedCount ?? 0} records updated`);
+      loadTasks();
+    } catch (err) {
+      if (isManual) alert(err.message);
+      else console.error('Background sheets sync error:', err.message);
+    } finally {
+      setSyncingSheet(false);
+    }
+  };
+
   useEffect(() => {
     loadTasks();
+
+    // Auto-sync Google Sheets every 5 minutes (300,000ms)
+    const interval = setInterval(() => {
+      handleSyncGoogleSheets(false);
+    }, 300000);
+
+    return () => clearInterval(interval);
   }, []);
 
-  const handleAutoFill = () => {
-    if (!rawReport.trim()) return;
-    const text = rawReport;
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target)) {
+        setShowDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
+  // Search clients across Sheets / Database
+  const searchClients = async (query) => {
+    if (!query || query.trim().length < 2) {
+      setSearchResults([]);
+      setShowDropdown(false);
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/clients/search?q=${encodeURIComponent(query.trim())}`);
+      if (res.ok) {
+        const data = await res.json();
+        setSearchResults(data || []);
+        setShowDropdown(data && data.length > 0);
+      }
+    } catch (err) {
+      console.error('Client search error:', err);
+    }
+  };
+
+  const handleSelectClient = (client) => {
+    if (client.account_number) setAccountNumber(client.account_number);
+    if (client.client_id) setClientId(String(client.client_id));
+    if (client.client_name || client.name) setClientName(client.client_name || client.name);
+    if (client.contact_number || client.contact) setContactNumber(client.contact_number || client.contact);
+    if (client.address) setAddress(client.address);
+    if (client.landmark || client.port || client.nap) setLandmark(client.landmark || client.port || client.nap || '');
+    if (client.issue) setIssue(client.issue);
+
+    setShowDropdown(false);
+    setMessage(`PROFILE MATCHED // ${client.client_name || client.name}`);
+  };
+
+  // Smart Async Parser: Supports Single ID Lookup & Full Viber/Messenger Dumps
+  const handleAutoFill = async () => {
+    if (!rawReport.trim()) return;
+
+    // Reset previous inputs
+    setAccountNumber('');
+    setClientId('');
+    setClientName('');
+    setContactNumber('');
+    setAddress('');
+    setLandmark('');
+    setIssue('');
+
+    const text = rawReport.trim();
+    const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+
+    let parsedAcc = '';
+    let parsedId = '';
+    let parsedName = '';
+    let parsedContact = '';
+    let parsedAddress = '';
+    let parsedLandmark = '';
+    let parsedIssue = '';
+
+    // 1. Check for labeled fields
     const accMatch = text.match(/(?:account\s*(?:no|number|#)?[:\s-]*)([0-9-]+)/i);
-    const idMatch = text.match(/(?:client\s*id[:\s-]*)([0-9]+)/i);
-    const nameMatch = text.match(/(?:client\s*name|name)[:\s-]*([^\n\r]+)/i);
+    const idMatch = text.match(/(?:client\s*id|id)[:\s-]*([0-9]+)/i);
+    const nameMatch = text.match(/(?:client\s*name|name)[:\s-]*([a-zA-Z\s.,'-]+)/i);
     const contactMatch = text.match(/(?:contact\s*(?:no|number|#)?|phone|mobile)[:\s-]*([0-9+]+)/i);
     const addressMatch = text.match(/(?:address|location)[:\s-]*([^\n\r]+)/i);
     const landmarkMatch = text.match(/(?:landmark|port|nap)[:\s-]*([^\n\r]+)/i);
     const issueMatch = text.match(/(?:issue|concern|problem|remarks|notes)[:\s-]*([^\n\r]+)/i);
 
-    if (accMatch) setAccountNumber(accMatch[1].trim());
-    if (idMatch) setClientId(idMatch[1].trim());
-    if (nameMatch) setClientName(nameMatch[1].trim());
-    if (contactMatch) setContactNumber(contactMatch[1].trim());
-    if (addressMatch) setAddress(addressMatch[1].trim());
-    if (landmarkMatch) setLandmark(landmarkMatch[1].trim());
-    if (issueMatch) setIssue(issueMatch[1].trim());
+    if (accMatch) parsedAcc = accMatch[1].trim();
+    if (idMatch) parsedId = idMatch[1].trim();
+    if (nameMatch) parsedName = nameMatch[1].trim();
+    if (contactMatch) parsedContact = contactMatch[1].trim();
+    if (addressMatch) parsedAddress = addressMatch[1].trim();
+    if (landmarkMatch) parsedLandmark = landmarkMatch[1].trim();
+    if (issueMatch) parsedIssue = issueMatch[1].trim();
 
+    // 2. Unlabeled line-by-line fallback
+    lines.forEach((line) => {
+      const cleanDigits = line.replace(/[\s-]/g, '');
+
+      // Account number pattern (e.g. 13-09162023-4397)
+      if (/^\d{2}-\d{8}-\d{4}$/.test(line) && !parsedAcc) {
+        parsedAcc = line;
+      }
+      // Philippine mobile phone number (10-12 digits starting with 9, 09, or +639)
+      else if (/^(?:\+?63|0)?9\d{9}$/.test(cleanDigits) && !parsedContact) {
+        parsedContact = cleanDigits.startsWith('63') ? '0' + cleanDigits.slice(2) : cleanDigits.startsWith('9') ? '0' + cleanDigits : cleanDigits;
+      }
+      // Numeric Client ID (6 to 8 digits, NOT a phone number)
+      else if (/^\d{6,8}$/.test(cleanDigits) && !parsedId) {
+        parsedId = cleanDigits;
+      }
+      // Port / NAP / Landmark identifiers (e.g., L11 N8B P13, NAP-04, PORT 12)
+      else if (/(?:[LP]\d+|N\d+[A-Z]?|NAP|PORT|POST|POLE)/i.test(line) && line.length < 35 && !parsedLandmark) {
+        parsedLandmark = line;
+      }
+      // Address keywords (Blk, Lot, Comp, Sitio, Brgy, St, Subd, etc.)
+      else if (/(?:blk|lot|comp|sitio|street|st\.|brgy|barangay|ave|road|subd|phase|vill)/i.test(line) && !parsedAddress) {
+        parsedAddress = line;
+      }
+      // Issue keywords (redlos, blinking, no connection, los, etc.)
+      else if (/(?:redlos|los|blinking|no\s*connection|slow|cut|defective)/i.test(line) && !parsedIssue) {
+        parsedIssue = line;
+      }
+      // Client Full Name (letters and spaces only, no pure numbers)
+      else if (!parsedName && /^[a-zA-Z\s.,'-]+$/.test(line) && line.length > 3 && line.length < 50) {
+        parsedName = line;
+      }
+    });
+
+    // 3. Database / Google Sheets profile lookup
+    const searchKey = parsedId || parsedAcc || (lines.length === 1 ? lines[0] : parsedName);
+
+    if (searchKey) {
+      setMessage(`LOOKUP // Querying database for ${searchKey}...`);
+      try {
+        const res = await fetch(`/api/clients/search?q=${encodeURIComponent(searchKey.trim())}`);
+        if (res.ok) {
+          const results = await res.json();
+          if (results && results.length > 0) {
+            const client = results[0];
+            if (client.account_number) parsedAcc = client.account_number;
+            if (client.client_id) parsedId = String(client.client_id);
+            if (client.client_name || client.name) parsedName = client.client_name || client.name;
+            if ((client.contact_number || client.contact) && !parsedContact) parsedContact = client.contact_number || client.contact;
+            if (client.address && !parsedAddress) parsedAddress = client.address;
+            if ((client.landmark || client.port || client.nap) && !parsedLandmark) {
+              parsedLandmark = client.landmark || client.port || client.nap;
+            }
+            if (client.issue && !parsedIssue) parsedIssue = client.issue;
+
+            setMessage(`PROFILE MATCHED // ${client.client_name || client.name}`);
+          }
+        }
+      } catch (err) {
+        console.error('Auto-lookup error:', err);
+      }
+    }
+
+    // 4. Update form state
+    setAccountNumber(parsedAcc);
+    setClientId(parsedId);
+    setClientName(parsedName);
+    setContactNumber(parsedContact);
+    setAddress(parsedAddress);
+    setLandmark(parsedLandmark);
+    setIssue(parsedIssue);
+
+    // Auto-detect directive type
     if (/install/i.test(text)) setTaskType('INSTALLATION');
     else if (/transfer/i.test(text)) setTaskType('TRANSFER');
     else if (/pullout|retrieval/i.test(text)) setTaskType('PULLOUT');
     else if (/survey/i.test(text)) setTaskType('SURVEY');
     else if (/relocation/i.test(text)) setTaskType('RELOCATION');
     else setTaskType('REPAIR');
-
-    setMessage('PARSER // Ticket metadata extracted into form');
   };
 
   const handleCreateTask = async (e) => {
@@ -114,14 +293,27 @@ export default function CSRPage() {
       <Navbar user={{ name: 'CSR Agent', role: 'CSR' }} />
 
       <main className="flex-1 min-h-0 w-full p-4 sm:p-6 md:p-8 flex flex-col gap-4 sm:gap-6">
-        <div className="flex justify-between items-center border-b border-white/10 pb-3 sm:pb-4 shrink-0">
+        {/* Header Ribbon & Google Sheets Integration Telemetry */}
+        <div className="flex flex-wrap justify-between items-center border-b border-white/10 pb-3 sm:pb-4 gap-3 shrink-0">
           <div>
             <span className="text-[10px] sm:text-[11px] font-mono uppercase tracking-[0.3em] text-white/40">Inbound Operations</span>
             <h1 className="text-base sm:text-xl font-black uppercase tracking-tight">Direct Job Creation Console</h1>
           </div>
-          <span className="text-[10px] sm:text-xs font-mono uppercase tracking-widest text-white/40">
-            Node: CSR-Terminal // Station 01
-          </span>
+
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => handleSyncGoogleSheets(true)}
+              disabled={syncingSheet}
+              className="px-3.5 sm:px-4 py-1.5 sm:py-2 bg-emerald-500/10 border border-emerald-500/40 hover:bg-emerald-500 hover:text-black text-emerald-300 text-[10px] sm:text-xs font-mono font-bold uppercase tracking-wider transition cursor-pointer flex items-center gap-2 disabled:opacity-50"
+            >
+              <span className={`w-2 h-2 rounded-full ${syncingSheet ? 'bg-amber-400 animate-ping' : 'bg-emerald-400'}`}></span>
+              {syncingSheet ? 'Syncing Sheets...' : 'Sync Google Sheets'}
+            </button>
+
+            <span className="text-[10px] sm:text-xs font-mono uppercase tracking-widest text-white/40 hidden sm:block">
+              {lastSyncTime ? `Last Sync: ${lastSyncTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Auto-Sync Active (60s)'}
+            </span>
+          </div>
         </div>
 
         {message && (
@@ -164,24 +356,27 @@ export default function CSRPage() {
                 </button>
               </div>
               <textarea
-                rows={3}
+                rows={4}
                 value={rawReport}
                 onChange={(e) => setRawReport(e.target.value)}
-                placeholder="Paste raw messenger/viber dispatch text here to auto-populate..."
-                className="w-full bg-white/[0.02] border border-white/10 p-2.5 sm:p-3 text-xs sm:text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-white"
+                placeholder="Paste Viber/Messenger dump (Name, Phone, Address, NAP/Port) or a single Client ID/Account # and click Auto-Extract..."
+                className="w-full bg-white/[0.02] border border-white/10 p-2.5 sm:p-3 text-xs sm:text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-white font-mono"
               />
             </div>
 
-            {/* Directive Form */}
-            <form onSubmit={handleCreateTask} className="space-y-3.5 sm:space-y-4 font-mono">
+            {/* Directive Form & Autocomplete Container */}
+            <form onSubmit={handleCreateTask} className="space-y-3.5 sm:space-y-4 font-mono relative" ref={searchContainerRef}>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div>
                   <label className="block text-[10px] sm:text-[11px] uppercase tracking-widest text-white/40 mb-1.5 font-bold">Account Number</label>
                   <input
                     type="text"
                     value={accountNumber}
-                    onChange={(e) => setAccountNumber(e.target.value)}
-                    placeholder="13-09162023-4397"
+                    onChange={(e) => {
+                      setAccountNumber(e.target.value);
+                      searchClients(e.target.value);
+                    }}
+                    placeholder="Enter Account Number"
                     className="w-full px-3.5 sm:px-4 py-2 sm:py-2.5 bg-black border border-white/10 text-xs sm:text-sm text-white uppercase focus:outline-none focus:border-white"
                   />
                 </div>
@@ -190,35 +385,74 @@ export default function CSRPage() {
                   <input
                     type="text"
                     value={clientId}
-                    onChange={(e) => setClientId(e.target.value)}
-                    placeholder="10011803"
+                    onChange={(e) => {
+                      setClientId(e.target.value);
+                      searchClients(e.target.value);
+                    }}
+                    placeholder="Enter Client ID"
                     className="w-full px-3.5 sm:px-4 py-2 sm:py-2.5 bg-black border border-white/10 text-xs sm:text-sm text-white focus:outline-none focus:border-white"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                <div>
-                  <label className="block text-[10px] sm:text-[11px] uppercase tracking-widest text-white/40 mb-1.5 font-bold">Client Full Name *</label>
-                  <input
-                    type="text"
-                    required
-                    value={clientName}
-                    onChange={(e) => setClientName(e.target.value)}
-                    placeholder="Flordeliza Gulles Pinagawa"
-                    className="w-full px-3.5 sm:px-4 py-2 sm:py-2.5 bg-black border border-white/10 text-xs sm:text-sm text-white uppercase focus:outline-none focus:border-white font-bold"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] sm:text-[11px] uppercase tracking-widest text-white/40 mb-1.5 font-bold">Contact Link</label>
-                  <input
-                    type="text"
-                    value={contactNumber}
-                    onChange={(e) => setContactNumber(e.target.value)}
-                    placeholder="09350849701"
-                    className="w-full px-3.5 sm:px-4 py-2 sm:py-2.5 bg-black border border-white/10 text-xs sm:text-sm text-white focus:outline-none focus:border-white"
-                  />
-                </div>
+              {/* Client Name with Matched Profile Dropdown */}
+              <div className="relative">
+                <label className="block text-[10px] sm:text-[11px] uppercase tracking-widest text-white/40 mb-1.5 font-bold">
+                  Client Full Name * <span className="text-white/30 font-normal">(Type to search database/sheets)</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={clientName}
+                  onChange={(e) => {
+                    setClientName(e.target.value);
+                    searchClients(e.target.value);
+                  }}
+                  onFocus={() => {
+                    if (searchResults.length > 0) setShowDropdown(true);
+                  }}
+                  placeholder="Enter Client Name to search..."
+                  className="w-full px-3.5 sm:px-4 py-2 sm:py-2.5 bg-black border border-white/10 text-xs sm:text-sm text-white uppercase focus:outline-none focus:border-white font-bold"
+                />
+
+                {/* Dropdown for Sheets / Database Matches */}
+                {showDropdown && (
+                  <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-black border border-white/20 shadow-2xl max-h-56 overflow-y-auto divide-y divide-white/10">
+                    <div className="p-2 text-[9px] uppercase tracking-widest text-emerald-400 font-bold bg-white/[0.03]">
+                      Matched Subscribers ({searchResults.length})
+                    </div>
+                    {searchResults.map((client, idx) => (
+                      <div
+                        key={idx}
+                        onClick={() => handleSelectClient(client)}
+                        className="p-3 hover:bg-white hover:text-black cursor-pointer transition text-xs font-mono group"
+                      >
+                        <div className="flex justify-between items-center">
+                          <span className="font-bold uppercase text-white group-hover:text-black">
+                            {client.client_name || client.name}
+                          </span>
+                          <span className="text-[10px] font-bold text-emerald-400 group-hover:text-black">
+                            {client.account_number || `ID: ${client.client_id}`}
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-white/50 group-hover:text-black/70 truncate mt-0.5">
+                          {client.address} {client.landmark || client.port ? `• ${client.landmark || client.port}` : ''}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-[10px] sm:text-[11px] uppercase tracking-widest text-white/40 mb-1.5 font-bold">Contact Link</label>
+                <input
+                  type="text"
+                  value={contactNumber}
+                  onChange={(e) => setContactNumber(e.target.value)}
+                  placeholder="09XXXXXXXXX"
+                  className="w-full px-3.5 sm:px-4 py-2 sm:py-2.5 bg-black border border-white/10 text-xs sm:text-sm text-white focus:outline-none focus:border-white"
+                />
               </div>
 
               <div>
@@ -228,7 +462,7 @@ export default function CSRPage() {
                   required
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
-                  placeholder="Lot 10 Block 88 Bonbon Ville, Ugong"
+                  placeholder="Street / Block / Barangay / City"
                   className="w-full px-3.5 sm:px-4 py-2 sm:py-2.5 bg-black border border-white/10 text-xs sm:text-sm text-white uppercase focus:outline-none focus:border-white"
                 />
               </div>
@@ -240,7 +474,7 @@ export default function CSRPage() {
                     type="text"
                     value={landmark}
                     onChange={(e) => setLandmark(e.target.value)}
-                    placeholder="U-L37 N8 P10"
+                    placeholder="NAP / Port / Pole details"
                     className="w-full px-3.5 sm:px-4 py-2 sm:py-2.5 bg-black border border-white/10 text-xs sm:text-sm text-white uppercase focus:outline-none focus:border-white"
                   />
                 </div>
@@ -250,7 +484,7 @@ export default function CSRPage() {
                     type="text"
                     value={issue}
                     onChange={(e) => setIssue(e.target.value)}
-                    placeholder="REDLOS / Fiber Cut"
+                    placeholder="e.g. REDLOS / Fiber Cut"
                     className="w-full px-3.5 sm:px-4 py-2 sm:py-2.5 bg-black border border-white/10 text-xs sm:text-sm text-white uppercase focus:outline-none focus:border-white"
                   />
                 </div>

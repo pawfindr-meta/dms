@@ -1,33 +1,31 @@
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { verifyUserToken } from '@/lib/auth';
-import { searchClientMasterList } from '@/lib/googleSheets';
+import { neon } from '@neondatabase/serverless';
+
+const sql = neon(process.env.DATABASE_URL);
 
 export async function GET(request) {
-  const cookieStore = await cookies();
-  const token = cookieStore.get('dms_session')?.value;
-  const user = verifyUserToken(token);
-
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized. Session required.' }, { status: 401 });
-  }
-
-  // Only CSR and Dispatcher are allowed to search and create tasks[cite: 1, 3]
-  if (!['CSR', 'DISPATCHER', 'MASTER_ADMIN'].includes(user.role)) {
-    return NextResponse.json({ error: 'Forbidden. Role cannot search client master.' }, { status: 403 });
-  }
-
-  const { searchParams } = new URL(request.url);
-  const q = searchParams.get('q') || '';
-
-  if (q.trim().length < 3) {
-    return NextResponse.json([]); // Return empty if below threshold[cite: 1, 3]
-  }
-
   try {
-    const results = await searchClientMasterList(q);
+    const { searchParams } = new URL(request.url);
+    const q = searchParams.get('q');
+
+    if (!q || q.trim().length < 2) {
+      return NextResponse.json([]);
+    }
+
+    const term = `%${q.trim()}%`;
+    const results = await sql`
+      SELECT account_number, client_id, client_name, contact_number, address, landmark, issue
+      FROM clients
+      WHERE client_name ILIKE ${term}
+         OR account_number ILIKE ${term}
+         OR client_id ILIKE ${term}
+      ORDER BY client_name ASC
+      LIMIT 10;
+    `;
+
     return NextResponse.json(results);
-  } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (err) {
+    console.error('Client search error:', err);
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
