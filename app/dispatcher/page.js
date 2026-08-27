@@ -112,6 +112,23 @@ export default function DispatcherPage() {
     }
   };
 
+  const handleDeleteTask = async (taskId) => {
+    if (!confirm(`Permanently remove dispatch directive #${taskId}?`)) return;
+
+    try {
+      const res = await fetch(`/api/tasks/${taskId}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || `Deletion failed (${res.status})`);
+
+      setTasks((prev) => prev.filter((t) => t.task_id !== taskId));
+      loadData();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
   const handleSaveRoster = async (e) => {
     e.preventDefault();
     if (!editingTeam) return;
@@ -326,6 +343,13 @@ export default function DispatcherPage() {
                             Acknowledge
                           </button>
                         )}
+
+                        <button
+                          onClick={() => handleDeleteTask(t.task_id)}
+                          className="px-2.5 py-1 rounded border border-red-500/30 text-red-400 hover:bg-red-500 hover:text-zinc-950 transition text-[11px] font-bold uppercase tracking-wider cursor-pointer"
+                        >
+                          Delete
+                        </button>
                       </td>
                     </tr>
                   ))

@@ -230,6 +230,20 @@ export default function AdminPage() {
     }
   };
 
+  const handleDeleteTech = async (tech) => {
+    if (!confirm(`Permanently remove operative "${tech.full_name}" (${tech.tech_id})?`)) return;
+    try {
+      const res = await fetch(`/api/technicians/${tech.tech_id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || `Removal failed (${res.status})`);
+
+      triggerSysMessage(`OPERATIVE REMOVED // ${tech.tech_id}`);
+      loadData();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
   return (
     <div className="h-[100dvh] w-screen bg-zinc-950 text-zinc-100 flex flex-col overflow-hidden font-sans select-none">
       <Navbar user={{ name: 'Master Administrator', role: 'MASTER_ADMIN' }} />
@@ -569,12 +583,18 @@ export default function AdminPage() {
                               {t.must_change_password ? 'Default PIN' : 'Active Key'}
                             </span>
                           </td>
-                          <td className="p-3.5 sm:p-4 text-right whitespace-nowrap">
+                          <td className="p-3.5 sm:p-4 text-right space-x-2 whitespace-nowrap">
                             <button
                               onClick={() => handleResetPin(t.tech_id)}
                               className="px-3 py-1 rounded border border-zinc-700 text-zinc-300 text-[11px] uppercase tracking-wider font-semibold hover:bg-zinc-800 hover:text-white transition cursor-pointer"
                             >
                               Reset PIN
+                            </button>
+                            <button
+                              onClick={() => handleDeleteTech(t)}
+                              className="px-3 py-1 rounded border border-red-500/30 text-red-400 hover:bg-red-500 hover:text-zinc-950 transition text-[11px] uppercase tracking-wider font-semibold cursor-pointer"
+                            >
+                              Remove
                             </button>
                           </td>
                         </tr>
