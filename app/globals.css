@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 @import "tailwindcss";
 
 :root {
@@ -6,26 +6,69 @@
   --font-fluid-body: clamp(0.75rem, 0.7rem + 0.25vw, 0.9rem);
 }
 
+html,
 body {
-  font-family: 'Plus Jakarta Sans', sans-serif;
-  background-color: #000000;
-  color: #f4f4f5;
-  margin: 0;
-  padding: 0;
+  height: 100vh;
   height: 100dvh;
   width: 100vw;
+  margin: 0;
+  padding: 0;
   overflow: hidden;
+  position: fixed;
+  inset: 0;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  background-color: #09090b;
+  color: #f4f4f5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Invisible Scrollbar System */
-html, body, * {
+/* Technical font utility */
+.font-mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Glassmorphism & Border Utilities */
+.glass-panel {
+  background: rgba(18, 18, 23, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Micro Subtle Scrollbar for Inner Content */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #27272a transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+  display: block !important;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #27272a;
+  border-radius: 9999px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #3f3f46;
+}
+
+/* Global Scrollbar Reset for non-custom containers */
+*:not(.custom-scrollbar) {
   scrollbar-width: none !important;
   -ms-overflow-style: none !important;
 }
 
-*::-webkit-scrollbar {
+*:not(.custom-scrollbar)::-webkit-scrollbar {
   display: none !important;
   width: 0px !important;
   height: 0px !important;
-  background: transparent !important;
 }

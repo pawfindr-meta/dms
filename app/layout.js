@@ -15,8 +15,12 @@ export const viewport = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" className="h-full bg-black text-white antialiased">
-      <body className="h-full bg-black overflow-hidden">{children}</body>
+    <html lang="en" className="h-full w-full overflow-hidden bg-zinc-950 text-zinc-100 antialiased">
+      <body className="h-[100dvh] w-screen overflow-hidden bg-zinc-950 text-zinc-100 flex flex-col fixed inset-0 select-none">
+        <div className="flex-1 flex flex-col h-full w-full overflow-hidden min-h-0">
+          {children}
+        </div>
+      </body>
     </html>
   );
 }

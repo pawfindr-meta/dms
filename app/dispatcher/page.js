@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Navbar from '@/components/Navbar';
 
 export default function DispatcherPage() {
@@ -8,6 +8,8 @@ export default function DispatcherPage() {
   const [teams, setTeams] = useState([]);
   const [techs, setTechs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('ALL');
 
   // Assignment Modal
   const [selectedTask, setSelectedTask] = useState(null);
@@ -49,6 +51,25 @@ export default function DispatcherPage() {
     const interval = setInterval(loadData, 10000);
     return () => clearInterval(interval);
   }, []);
+
+  // Filter tasks dynamically
+  const filteredTasks = useMemo(() => {
+    return tasks.filter((t) => {
+      const matchesSearch =
+        t.task_id?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        t.client_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        t.address?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        t.team_name?.toLowerCase().includes(searchQuery.toLowerCase());
+
+      if (!matchesSearch) return false;
+
+      if (statusFilter === 'UNASSIGNED') return ['NEW', 'RELEASED'].includes(t.status);
+      if (statusFilter === 'IN_FIELD') return ['ASSIGNED', 'IN_PROGRESS', 'ON_SITE', 'EN_ROUTE'].includes(t.status);
+      if (statusFilter === 'COMPLETED') return t.status === 'COMPLETED';
+      if (statusFilter === 'ESCALATED') return t.status === 'REASSIGNMENT_REQUESTED';
+      return true;
+    });
+  }, [tasks, searchQuery, statusFilter]);
 
   const handleAssignTeam = async (e) => {
     e.preventDefault();
@@ -138,23 +159,26 @@ export default function DispatcherPage() {
   };
 
   return (
-    <div className="h-dvh w-screen bg-black text-white flex flex-col overflow-hidden font-sans">
+    <div className="h-[100dvh] w-screen bg-zinc-950 text-zinc-100 flex flex-col overflow-hidden font-sans select-none">
       <Navbar user={{ name: 'Head Dispatcher', role: 'DISPATCHER' }} />
 
-      <main className="flex-1 min-h-0 w-full p-4 sm:p-6 md:p-8 flex flex-col gap-4 sm:gap-6">
+      <main className="flex-1 min-h-0 w-full p-3 sm:p-5 md:p-6 flex flex-col gap-3 sm:gap-4 overflow-hidden">
+        
         {/* Active Teams Strip */}
-        <div className="border border-white/10 bg-white/[0.01] p-4 sm:p-6 shrink-0 space-y-3 sm:space-y-4">
-          <div className="flex justify-between items-center border-b border-white/10 pb-2.5 sm:pb-3">
-            <div>
-              <span className="text-[10px] sm:text-[11px] font-mono uppercase tracking-[0.3em] text-white/40">Field Units</span>
-              <h2 className="text-sm sm:text-base font-black uppercase tracking-tight">Active Workload Distribution</h2>
+        <div className="rounded-xl border border-zinc-800/80 bg-zinc-900/40 p-3 sm:p-4 shrink-0 space-y-2.5">
+          <div className="flex justify-between items-center border-b border-zinc-800 pb-2">
+            <div className="flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="text-[10px] font-mono uppercase tracking-[0.25em] text-zinc-400">
+                Field Units Workload ({teams.length})
+              </span>
             </div>
-            <span className="text-[10px] sm:text-[11px] font-mono uppercase tracking-widest text-white/40 hidden sm:block">
-              Click unit to modify roster
+            <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 hidden sm:block">
+              Click unit card to modify operative roster
             </span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 max-h-48 overflow-y-auto sm:max-h-none sm:overflow-visible">
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 max-h-36 overflow-y-auto custom-scrollbar">
             {teams.map((t) => (
               <div
                 key={t.team_id}
@@ -163,16 +187,18 @@ export default function DispatcherPage() {
                   setSelectedTechs(t.members ? t.members.map((m) => m.tech_id) : []);
                   setRosterModalOpen(true);
                 }}
-                className="p-3.5 sm:p-5 border border-white/10 bg-black hover:bg-white hover:text-black transition-all duration-300 cursor-pointer flex flex-col justify-between group space-y-2.5 sm:space-y-3"
+                className="p-3 rounded-lg border border-zinc-800 bg-zinc-950/80 hover:border-zinc-700 hover:bg-zinc-900/60 transition cursor-pointer flex flex-col justify-between group space-y-1.5"
               >
                 <div className="flex justify-between items-start gap-2">
-                  <span className="font-black uppercase text-xs sm:text-sm md:text-base tracking-tight truncate">{t.team_name}</span>
-                  <span className="px-2.5 sm:px-3 py-0.5 sm:py-1 border border-emerald-400 text-emerald-400 group-hover:bg-black group-hover:text-emerald-400 text-[10px] sm:text-xs font-mono font-bold shrink-0">
+                  <span className="font-bold uppercase text-xs tracking-tight text-zinc-200 group-hover:text-white truncate">
+                    {t.team_name}
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full border border-emerald-500/30 bg-emerald-950/40 text-emerald-400 text-[10px] font-mono font-bold shrink-0">
                     {t.active_workload} Active
                   </span>
                 </div>
-                <div className="text-[11px] sm:text-xs font-mono text-white/50 group-hover:text-black/70 truncate">
-                  {t.members?.length > 0 ? t.members.map((m) => m.tech_id).join(', ') : 'Unassigned'}
+                <div className="text-[10px] font-mono text-zinc-500 truncate">
+                  {t.members?.length > 0 ? t.members.map((m) => m.tech_id).join(', ') : 'No Operatives'}
                 </div>
               </div>
             ))}
@@ -180,83 +206,130 @@ export default function DispatcherPage() {
         </div>
 
         {/* Live Task Matrix */}
-        <div className="flex-1 min-h-0 border border-white/10 flex flex-col bg-white/[0.01]">
-          <div className="p-4 sm:p-6 flex justify-between items-center border-b border-white/10 shrink-0">
-            <div>
-              <span className="text-[10px] sm:text-[11px] font-mono uppercase tracking-[0.3em] text-white/40">Real-Time Routing</span>
-              <h2 className="text-base sm:text-xl font-black uppercase tracking-tight">Active Dispatch Matrix ({tasks.length})</h2>
+        <div className="flex-1 min-h-0 rounded-xl border border-zinc-800/80 bg-zinc-900/30 flex flex-col overflow-hidden">
+          
+          {/* Header, Filters & Search */}
+          <div className="p-3 sm:p-4 border-b border-zinc-800 bg-zinc-900/60 flex flex-wrap justify-between items-center gap-3 shrink-0">
+            <div className="flex items-center gap-2">
+              {[
+                { id: 'ALL', label: 'All Jobs' },
+                { id: 'UNASSIGNED', label: 'Unassigned' },
+                { id: 'IN_FIELD', label: 'In Field' },
+                { id: 'ESCALATED', label: 'Escalated' },
+                { id: 'COMPLETED', label: 'Completed' },
+              ].map((filter) => (
+                <button
+                  key={filter.id}
+                  onClick={() => setStatusFilter(filter.id)}
+                  className={`px-3 py-1 text-[11px] font-mono uppercase tracking-wider rounded-lg border transition cursor-pointer ${
+                    statusFilter === filter.id
+                      ? 'bg-zinc-100 text-zinc-950 border-zinc-100 font-bold'
+                      : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700'
+                  }`}
+                >
+                  {filter.label}
+                </button>
+              ))}
             </div>
-            <button
-              onClick={loadData}
-              className="px-3 sm:px-4 py-1.5 sm:py-2 border border-white/20 text-xs font-mono uppercase tracking-widest hover:bg-white hover:text-black transition cursor-pointer"
-            >
-              Refresh
-            </button>
+
+            <div className="flex items-center gap-2.5">
+              <input
+                type="text"
+                placeholder="Search directives..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="px-3 py-1.5 bg-zinc-950 border border-zinc-800 rounded-lg text-xs font-mono text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-zinc-600 w-44 sm:w-56"
+              />
+              <button
+                onClick={loadData}
+                className="px-3 py-1.5 rounded-lg border border-zinc-700 bg-zinc-900 text-xs font-mono uppercase tracking-wider text-zinc-300 hover:bg-zinc-800 hover:text-white transition cursor-pointer"
+              >
+                Refresh
+              </button>
+            </div>
           </div>
 
-          <div className="flex-1 min-h-0 overflow-auto">
-            <table className="min-w-[800px] w-full text-left text-sm font-mono">
-              <thead className="sticky top-0 bg-black/95 z-10">
-                <tr className="border-b border-white/10 text-[11px] uppercase tracking-[0.25em] text-white/40 bg-white/[0.02]">
-                  <th className="p-4">Task ID</th>
-                  <th className="p-4">Type</th>
-                  <th className="p-4">Status</th>
-                  <th className="p-4">Client Name</th>
-                  <th className="p-4">Assigned Unit</th>
-                  <th className="p-4">Site Coordinates</th>
-                  <th className="p-4 text-right">Operations</th>
+          {/* Table Content */}
+          <div className="flex-1 min-h-0 overflow-auto custom-scrollbar">
+            <table className="w-full text-left text-xs font-mono">
+              <thead className="sticky top-0 bg-zinc-900/95 backdrop-blur z-10 border-b border-zinc-800">
+                <tr className="text-[10px] uppercase tracking-[0.2em] text-zinc-400">
+                  <th className="p-3.5 sm:p-4">Directive ID</th>
+                  <th className="p-3.5 sm:p-4">Type</th>
+                  <th className="p-3.5 sm:p-4">Status</th>
+                  <th className="p-3.5 sm:p-4">Client / Subscriber</th>
+                  <th className="p-3.5 sm:p-4">Assigned Unit</th>
+                  <th className="p-3.5 sm:p-4">Site Location</th>
+                  <th className="p-3.5 sm:p-4 text-right">Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/10">
-                {tasks.map((t) => (
-                  <tr key={t.task_id} className="hover:bg-white/[0.02] transition">
-                    <td className="p-4 font-bold text-emerald-400 text-sm sm:text-base">{t.task_id}</td>
-                    <td className="p-4 uppercase font-bold text-white">{t.task_type}</td>
-                    <td className="p-4">
-                      <span className={`px-2.5 sm:px-3 py-0.5 sm:py-1 border text-[10px] sm:text-xs font-black uppercase tracking-wider ${
-                        t.status === 'NEW' ? 'border-white/20 text-white/70' :
-                        t.status === 'ASSIGNED' ? 'border-amber-400/50 text-amber-400' :
-                        t.status === 'IN_PROGRESS' ? 'border-blue-400/50 text-blue-400' :
-                        t.status === 'COMPLETED' ? 'border-emerald-400/50 text-emerald-400' :
-                        t.status === 'REASSIGNMENT_REQUESTED' ? 'border-red-500 text-red-400 animate-pulse' :
-                        'border-white/10 text-white/40'
-                      }`}>
-                        {t.status}
-                      </span>
-                    </td>
-                    <td className="p-4 text-white uppercase font-bold text-sm sm:text-base">{t.client_name}</td>
-                    <td className="p-4 text-white/80 font-bold">{t.team_name || '—'}</td>
-                    <td className="p-4 text-white/60 max-w-sm truncate">{t.address}</td>
-                    <td className="p-4 text-right space-x-2.5 sm:space-x-3 whitespace-nowrap">
-                      {['NEW', 'RELEASED', 'ASSIGNED'].includes(t.status) && (
-                        <button
-                          onClick={() => setSelectedTask(t)}
-                          className="px-3.5 sm:px-4 py-1.5 sm:py-2 bg-white text-black font-black uppercase text-[10px] sm:text-xs tracking-widest hover:bg-white/80 transition cursor-pointer"
-                        >
-                          {t.status === 'ASSIGNED' ? 'Reassign' : 'Assign Unit'}
-                        </button>
-                      )}
-
-                      {t.status === 'REASSIGNMENT_REQUESTED' && (
-                        <button
-                          onClick={() => setReassignTask(t)}
-                          className="px-3.5 sm:px-4 py-1.5 sm:py-2 border border-red-500 text-red-400 hover:bg-red-500 hover:text-black font-black uppercase text-[10px] sm:text-xs tracking-widest transition cursor-pointer"
-                        >
-                          Review Incident
-                        </button>
-                      )}
-
-                      {t.status === 'COMPLETED' && (
-                        <button
-                          onClick={() => handleAcknowledge(t.task_id)}
-                          className="px-3.5 sm:px-4 py-1.5 sm:py-2 border border-emerald-400 text-emerald-400 hover:bg-emerald-400 hover:text-black font-black uppercase text-[10px] sm:text-xs tracking-widest transition cursor-pointer"
-                        >
-                          Acknowledge
-                        </button>
-                      )}
+              <tbody className="divide-y divide-zinc-800/60">
+                {loading ? (
+                  <tr>
+                    <td colSpan={7} className="p-12 text-center text-zinc-600 uppercase tracking-widest text-xs">
+                      Synchronizing active routing telemetry...
                     </td>
                   </tr>
-                ))}
+                ) : filteredTasks.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="p-12 text-center text-zinc-600 uppercase tracking-widest text-xs">
+                      No matching field directives found
+                    </td>
+                  </tr>
+                ) : (
+                  filteredTasks.map((t) => (
+                    <tr key={t.task_id} className="hover:bg-zinc-800/20 transition-colors">
+                      <td className="p-3.5 sm:p-4 font-bold text-emerald-400">{t.task_id}</td>
+                      <td className="p-3.5 sm:p-4 font-semibold text-zinc-300 uppercase">{t.task_type}</td>
+                      <td className="p-3.5 sm:p-4">
+                        <span className={`px-2 py-0.5 rounded border text-[10px] font-bold uppercase tracking-wider ${
+                          t.status === 'NEW' ? 'border-zinc-700 text-zinc-400 bg-zinc-900' :
+                          t.status === 'ASSIGNED' ? 'border-amber-500/30 text-amber-400 bg-amber-950/30' :
+                          t.status === 'IN_PROGRESS' ? 'border-blue-500/30 text-blue-400 bg-blue-950/30' :
+                          t.status === 'COMPLETED' ? 'border-emerald-500/30 text-emerald-400 bg-emerald-950/30' :
+                          t.status === 'REASSIGNMENT_REQUESTED' ? 'border-red-500/40 text-red-400 bg-red-950/40 animate-pulse' :
+                          'border-zinc-800 text-zinc-500'
+                        }`}>
+                          {t.status}
+                        </span>
+                      </td>
+                      <td className="p-3.5 sm:p-4 font-bold text-zinc-100 uppercase">{t.client_name}</td>
+                      <td className="p-3.5 sm:p-4 font-semibold text-zinc-300">{t.team_name || '—'}</td>
+                      <td className="p-3.5 sm:p-4 text-zinc-400 max-w-xs truncate">{t.address}</td>
+                      <td className="p-3.5 sm:p-4 text-right whitespace-nowrap space-x-2">
+                        {['NEW', 'RELEASED', 'ASSIGNED'].includes(t.status) && (
+                          <button
+                            onClick={() => {
+                              setSelectedTask(t);
+                              setAssignTeamId(t.assigned_team_id ? String(t.assigned_team_id) : '');
+                            }}
+                            className="px-3 py-1 bg-zinc-100 text-zinc-950 font-bold uppercase text-[11px] tracking-wider rounded hover:bg-zinc-200 transition cursor-pointer"
+                          >
+                            {t.status === 'ASSIGNED' ? 'Reassign' : 'Assign Unit'}
+                          </button>
+                        )}
+
+                        {t.status === 'REASSIGNMENT_REQUESTED' && (
+                          <button
+                            onClick={() => setReassignTask(t)}
+                            className="px-3 py-1 border border-red-500/40 bg-red-950/30 text-red-400 hover:bg-red-500 hover:text-zinc-950 font-bold uppercase text-[11px] tracking-wider rounded transition cursor-pointer"
+                          >
+                            Review Request
+                          </button>
+                        )}
+
+                        {t.status === 'COMPLETED' && (
+                          <button
+                            onClick={() => handleAcknowledge(t.task_id)}
+                            className="px-3 py-1 border border-emerald-500/40 bg-emerald-950/30 text-emerald-400 hover:bg-emerald-500 hover:text-zinc-950 font-bold uppercase text-[11px] tracking-wider rounded transition cursor-pointer"
+                          >
+                            Acknowledge
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -265,40 +338,51 @@ export default function DispatcherPage() {
 
       {/* ASSIGN TASK MODAL */}
       {selectedTask && (
-        <div className="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 sm:p-6 z-50">
-          <div className="max-w-lg w-full border border-white/20 bg-black p-6 sm:p-8 space-y-6 shadow-2xl">
-            <h3 className="text-base sm:text-lg font-black uppercase tracking-tight text-white">Route Job: {selectedTask.task_id}</h3>
-            <p className="text-xs sm:text-sm font-mono text-white/60">{selectedTask.client_name} • {selectedTask.address}</p>
+        <div
+          onClick={(e) => e.target === e.currentTarget && setSelectedTask(null)}
+          className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-150"
+        >
+          <div className="max-w-md w-full rounded-xl border border-zinc-800 bg-zinc-900 p-5 space-y-4 shadow-2xl">
+            <div>
+              <span className="text-[10px] font-mono uppercase tracking-widest text-emerald-400">Route Field Job</span>
+              <h3 className="text-sm sm:text-base font-bold uppercase tracking-tight text-zinc-100">
+                {selectedTask.task_id} // {selectedTask.client_name}
+              </h3>
+              <p className="text-xs font-mono text-zinc-400 truncate mt-0.5">{selectedTask.address}</p>
+            </div>
 
-            <form onSubmit={handleAssignTeam} className="space-y-4 font-mono">
-              <select
-                required
-                value={assignTeamId}
-                onChange={(e) => setAssignTeamId(e.target.value)}
-                className="w-full px-4 py-2.5 sm:py-3 bg-black border border-white/10 text-sm text-white uppercase focus:outline-none focus:border-white"
-              >
-                <option value="">-- Select Field Unit --</option>
-                {teams.map((t) => (
-                  <option key={t.team_id} value={t.team_id}>
-                    {t.team_name} ({t.active_workload} active)
-                  </option>
-                ))}
-              </select>
+            <form onSubmit={handleAssignTeam} className="space-y-3 font-mono">
+              <div>
+                <label className="block text-[10px] uppercase tracking-widest text-zinc-400 mb-1">Target Field Unit</label>
+                <select
+                  required
+                  value={assignTeamId}
+                  onChange={(e) => setAssignTeamId(e.target.value)}
+                  className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-zinc-200 uppercase focus:outline-none focus:border-zinc-600"
+                >
+                  <option value="">-- Select Field Unit --</option>
+                  {teams.map((t) => (
+                    <option key={t.team_id} value={t.team_id}>
+                      {t.team_name} ({t.active_workload} Active)
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-              <div className="flex justify-end gap-3 pt-4 border-t border-white/10">
+              <div className="flex justify-end gap-2 pt-3 border-t border-zinc-800">
                 <button
                   type="button"
                   onClick={() => setSelectedTask(null)}
-                  className="px-4 sm:px-5 py-2 sm:py-2.5 border border-white/20 text-xs uppercase tracking-widest text-white"
+                  className="px-4 py-2 rounded-lg border border-zinc-800 text-xs font-semibold uppercase tracking-wider text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 transition"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isAssigning}
-                  className="px-5 sm:px-6 py-2 sm:py-2.5 bg-white text-black text-xs font-black uppercase tracking-widest hover:bg-white/80 cursor-pointer"
+                  className="px-4 py-2 rounded-lg bg-zinc-100 text-zinc-950 text-xs font-bold uppercase tracking-wider hover:bg-zinc-200 transition cursor-pointer"
                 >
-                  {isAssigning ? 'Routing...' : 'Confirm Assignment'}
+                  {isAssigning ? 'Routing...' : 'Confirm Order'}
                 </button>
               </div>
             </form>
@@ -308,36 +392,41 @@ export default function DispatcherPage() {
 
       {/* ROSTER MODAL */}
       {rosterModalOpen && editingTeam && (
-        <div className="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 sm:p-6 z-50">
-          <div className="max-w-lg w-full border border-white/20 bg-black p-6 sm:p-8 space-y-6 shadow-2xl">
-            <h3 className="text-base sm:text-lg font-black uppercase tracking-tight text-white">Unit Roster: {editingTeam.team_name}</h3>
-            <form onSubmit={handleSaveRoster} className="space-y-4 font-mono">
-              <div className="max-h-60 sm:max-h-64 overflow-y-auto border border-white/10 p-3 space-y-2">
+        <div
+          onClick={(e) => e.target === e.currentTarget && setRosterModalOpen(false)}
+          className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-150"
+        >
+          <div className="max-w-lg w-full rounded-xl border border-zinc-800 bg-zinc-900 p-5 space-y-4 shadow-2xl">
+            <h3 className="text-sm sm:text-base font-bold uppercase tracking-tight text-zinc-100">
+              Unit Roster // {editingTeam.team_name}
+            </h3>
+            <form onSubmit={handleSaveRoster} className="space-y-3 font-mono">
+              <div className="max-h-56 overflow-y-auto custom-scrollbar border border-zinc-800 rounded-lg p-2 space-y-1 bg-zinc-950">
                 {techs.map((t) => (
-                  <label key={t.tech_id} className="flex items-center gap-3 p-2 hover:bg-white/[0.03] text-sm cursor-pointer">
+                  <label key={t.tech_id} className="flex items-center gap-2.5 p-2 rounded hover:bg-zinc-900 text-xs cursor-pointer">
                     <input
                       type="checkbox"
                       checked={selectedTechs.includes(t.tech_id)}
                       onChange={() => setSelectedTechs((prev) => prev.includes(t.tech_id) ? prev.filter((id) => id !== t.tech_id) : [...prev, t.tech_id])}
-                      className="rounded border-white/30 text-white bg-black focus:ring-0 w-4 h-4"
+                      className="rounded border-zinc-700 text-zinc-100 bg-zinc-900 focus:ring-0 w-3.5 h-3.5"
                     />
                     <span className="text-emerald-400 font-bold">{t.tech_id}</span>
-                    <span className="text-white uppercase font-bold">{t.full_name}</span>
+                    <span className="text-zinc-200 uppercase font-semibold">{t.full_name}</span>
                   </label>
                 ))}
               </div>
-              <div className="flex justify-end gap-3 pt-4 border-t border-white/10">
+              <div className="flex justify-end gap-2 pt-3 border-t border-zinc-800">
                 <button
                   type="button"
                   onClick={() => setRosterModalOpen(false)}
-                  className="px-4 sm:px-5 py-2 sm:py-2.5 border border-white/20 text-xs uppercase tracking-widest text-white"
+                  className="px-4 py-2 rounded-lg border border-zinc-800 text-xs font-semibold uppercase tracking-wider text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 transition"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={savingRoster}
-                  className="px-5 sm:px-6 py-2 sm:py-2.5 bg-white text-black text-xs font-black uppercase tracking-widest hover:bg-white/80 cursor-pointer"
+                  className="px-4 py-2 rounded-lg bg-zinc-100 text-zinc-950 text-xs font-bold uppercase tracking-wider hover:bg-zinc-200 transition cursor-pointer"
                 >
                   {savingRoster ? 'Saving...' : 'Update Roster'}
                 </button>
@@ -349,62 +438,85 @@ export default function DispatcherPage() {
 
       {/* REASSIGN REVIEW MODAL */}
       {reassignTask && (
-        <div className="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 sm:p-6 z-50">
-          <div className="max-w-lg w-full border border-red-500/40 bg-black p-6 sm:p-8 space-y-6 shadow-2xl">
-            <h3 className="text-base sm:text-lg font-black uppercase tracking-tight text-red-400">Incident Review: {reassignTask.task_id}</h3>
-            <form onSubmit={handleResolveReassign} className="space-y-4 font-mono">
-              <div className="grid grid-cols-2 gap-3">
+        <div
+          onClick={(e) => e.target === e.currentTarget && setReassignTask(null)}
+          className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-150"
+        >
+          <div className="max-w-md w-full rounded-xl border border-red-500/30 bg-zinc-900 p-5 space-y-4 shadow-2xl">
+            <div>
+              <span className="text-[10px] font-mono uppercase tracking-widest text-red-400 font-bold">Escalation Review</span>
+              <h3 className="text-sm sm:text-base font-bold uppercase tracking-tight text-zinc-100">
+                {reassignTask.task_id} // {reassignTask.client_name}
+              </h3>
+            </div>
+
+            <form onSubmit={handleResolveReassign} className="space-y-3 font-mono">
+              <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
                   onClick={() => setReassignAction('APPROVED')}
-                  className={`py-2 sm:py-2.5 text-xs uppercase tracking-widest font-black border ${reassignAction === 'APPROVED' ? 'bg-white text-black border-white' : 'border-white/20 text-white'}`}
+                  className={`py-2 text-xs uppercase tracking-wider font-bold rounded-lg border transition ${
+                    reassignAction === 'APPROVED'
+                      ? 'bg-zinc-100 text-zinc-950 border-zinc-100'
+                      : 'border-zinc-800 text-zinc-400 bg-zinc-950 hover:border-zinc-700'
+                  }`}
                 >
                   Approve Reassign
                 </button>
                 <button
                   type="button"
                   onClick={() => setReassignAction('DENIED')}
-                  className={`py-2 sm:py-2.5 text-xs uppercase tracking-widest font-black border ${reassignAction === 'DENIED' ? 'bg-red-500 text-black border-red-500' : 'border-white/20 text-white'}`}
+                  className={`py-2 text-xs uppercase tracking-wider font-bold rounded-lg border transition ${
+                    reassignAction === 'DENIED'
+                      ? 'bg-red-500 text-zinc-950 border-red-500'
+                      : 'border-zinc-800 text-zinc-400 bg-zinc-950 hover:border-zinc-700'
+                  }`}
                 >
                   Deny Request
                 </button>
               </div>
 
               {reassignAction === 'APPROVED' && (
-                <select
-                  required
-                  value={newTeamId}
-                  onChange={(e) => setNewTeamId(e.target.value)}
-                  className="w-full px-4 py-2.5 sm:py-3 bg-black border border-white/10 text-sm text-white uppercase focus:outline-none focus:border-white"
-                >
-                  <option value="">-- Choose New Unit --</option>
-                  {teams.map((t) => (
-                    <option key={t.team_id} value={t.team_id}>
-                      {t.team_name} ({t.active_workload} active)
-                    </option>
-                  ))}
-                </select>
+                <div>
+                  <label className="block text-[10px] uppercase tracking-widest text-zinc-400 mb-1">Transfer to Unit</label>
+                  <select
+                    required
+                    value={newTeamId}
+                    onChange={(e) => setNewTeamId(e.target.value)}
+                    className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-zinc-200 uppercase focus:outline-none focus:border-zinc-600"
+                  >
+                    <option value="">-- Choose New Unit --</option>
+                    {teams.map((t) => (
+                      <option key={t.team_id} value={t.team_id}>
+                        {t.team_name} ({t.active_workload} Active)
+                      </option>
+                    ))}
+                  </select>
+                </div>
               )}
 
-              <input
-                type="text"
-                value={reassignRemarks}
-                onChange={(e) => setReassignRemarks(e.target.value)}
-                placeholder="Operational remarks..."
-                className="w-full px-4 py-2.5 sm:py-3 bg-black border border-white/10 text-sm text-white focus:outline-none focus:border-white"
-              />
+              <div>
+                <label className="block text-[10px] uppercase tracking-widest text-zinc-400 mb-1">Remarks</label>
+                <input
+                  type="text"
+                  value={reassignRemarks}
+                  onChange={(e) => setReassignRemarks(e.target.value)}
+                  placeholder="Reason / Dispatcher remarks..."
+                  className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-zinc-200 focus:outline-none focus:border-zinc-600"
+                />
+              </div>
 
-              <div className="flex justify-end gap-3 pt-4 border-t border-white/10">
+              <div className="flex justify-end gap-2 pt-3 border-t border-zinc-800">
                 <button
                   type="button"
                   onClick={() => setReassignTask(null)}
-                  className="px-4 sm:px-5 py-2 sm:py-2.5 border border-white/20 text-xs uppercase tracking-widest text-white"
+                  className="px-4 py-2 rounded-lg border border-zinc-800 text-xs font-semibold uppercase tracking-wider text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 transition"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 sm:px-6 py-2 sm:py-2.5 bg-white text-black text-xs font-black uppercase tracking-widest hover:bg-white/80 cursor-pointer"
+                  className="px-4 py-2 rounded-lg bg-zinc-100 text-zinc-950 text-xs font-bold uppercase tracking-wider hover:bg-zinc-200 transition cursor-pointer"
                 >
                   Commit Order
                 </button>

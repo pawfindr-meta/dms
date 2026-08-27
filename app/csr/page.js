@@ -122,11 +122,9 @@ export default function CSRPage() {
     setMessage(`PROFILE MATCHED // ${client.client_name || client.name}`);
   };
 
-  // Smart Async Parser: Supports Single ID Lookup & Full Viber/Messenger Dumps
   const handleAutoFill = async () => {
     if (!rawReport.trim()) return;
 
-    // Reset previous inputs
     setAccountNumber('');
     setClientId('');
     setClientName('');
@@ -146,7 +144,6 @@ export default function CSRPage() {
     let parsedLandmark = '';
     let parsedIssue = '';
 
-    // 1. Check for labeled fields
     const accMatch = text.match(/(?:account\s*(?:no|number|#)?[:\s-]*)([0-9-]+)/i);
     const idMatch = text.match(/(?:client\s*id|id)[:\s-]*([0-9]+)/i);
     const nameMatch = text.match(/(?:client\s*name|name)[:\s-]*([a-zA-Z\s.,'-]+)/i);
@@ -163,41 +160,26 @@ export default function CSRPage() {
     if (landmarkMatch) parsedLandmark = landmarkMatch[1].trim();
     if (issueMatch) parsedIssue = issueMatch[1].trim();
 
-    // 2. Unlabeled line-by-line fallback
     lines.forEach((line) => {
       const cleanDigits = line.replace(/[\s-]/g, '');
 
-      // Account number pattern (e.g. 13-09162023-4397)
       if (/^\d{2}-\d{8}-\d{4}$/.test(line) && !parsedAcc) {
         parsedAcc = line;
-      }
-      // Philippine mobile phone number (10-12 digits starting with 9, 09, or +639)
-      else if (/^(?:\+?63|0)?9\d{9}$/.test(cleanDigits) && !parsedContact) {
+      } else if (/^(?:\+?63|0)?9\d{9}$/.test(cleanDigits) && !parsedContact) {
         parsedContact = cleanDigits.startsWith('63') ? '0' + cleanDigits.slice(2) : cleanDigits.startsWith('9') ? '0' + cleanDigits : cleanDigits;
-      }
-      // Numeric Client ID (6 to 8 digits, NOT a phone number)
-      else if (/^\d{6,8}$/.test(cleanDigits) && !parsedId) {
+      } else if (/^\d{6,8}$/.test(cleanDigits) && !parsedId) {
         parsedId = cleanDigits;
-      }
-      // Port / NAP / Landmark identifiers (e.g., L11 N8B P13, NAP-04, PORT 12)
-      else if (/(?:[LP]\d+|N\d+[A-Z]?|NAP|PORT|POST|POLE)/i.test(line) && line.length < 35 && !parsedLandmark) {
+      } else if (/(?:[LP]\d+|N\d+[A-Z]?|NAP|PORT|POST|POLE)/i.test(line) && line.length < 35 && !parsedLandmark) {
         parsedLandmark = line;
-      }
-      // Address keywords (Blk, Lot, Comp, Sitio, Brgy, St, Subd, etc.)
-      else if (/(?:blk|lot|comp|sitio|street|st\.|brgy|barangay|ave|road|subd|phase|vill)/i.test(line) && !parsedAddress) {
+      } else if (/(?:blk|lot|comp|sitio|street|st\.|brgy|barangay|ave|road|subd|phase|vill)/i.test(line) && !parsedAddress) {
         parsedAddress = line;
-      }
-      // Issue keywords (redlos, blinking, no connection, los, etc.)
-      else if (/(?:redlos|los|blinking|no\s*connection|slow|cut|defective)/i.test(line) && !parsedIssue) {
+      } else if (/(?:redlos|los|blinking|no\s*connection|slow|cut|defective)/i.test(line) && !parsedIssue) {
         parsedIssue = line;
-      }
-      // Client Full Name (letters and spaces only, no pure numbers)
-      else if (!parsedName && /^[a-zA-Z\s.,'-]+$/.test(line) && line.length > 3 && line.length < 50) {
+      } else if (!parsedName && /^[a-zA-Z\s.,'-]+$/.test(line) && line.length > 3 && line.length < 50) {
         parsedName = line;
       }
     });
 
-    // 3. Database / Google Sheets profile lookup
     const searchKey = parsedId || parsedAcc || (lines.length === 1 ? lines[0] : parsedName);
 
     if (searchKey) {
@@ -226,7 +208,6 @@ export default function CSRPage() {
       }
     }
 
-    // 4. Update form state
     setAccountNumber(parsedAcc);
     setClientId(parsedId);
     setClientName(parsedName);
@@ -235,7 +216,6 @@ export default function CSRPage() {
     setLandmark(parsedLandmark);
     setIssue(parsedIssue);
 
-    // Auto-detect directive type
     if (/install/i.test(text)) setTaskType('INSTALLATION');
     else if (/transfer/i.test(text)) setTaskType('TRANSFER');
     else if (/pullout|retrieval/i.test(text)) setTaskType('PULLOUT');
@@ -289,48 +269,55 @@ export default function CSRPage() {
   };
 
   return (
-    <div className="h-dvh w-screen bg-black text-white flex flex-col overflow-hidden font-sans">
+    <div className="h-[100dvh] w-screen bg-zinc-950 text-zinc-100 flex flex-col overflow-hidden font-sans select-none">
       <Navbar user={{ name: 'CSR Agent', role: 'CSR' }} />
 
-      <main className="flex-1 min-h-0 w-full p-4 sm:p-6 md:p-8 flex flex-col gap-4 sm:gap-6">
+      <main className="flex-1 min-h-0 w-full p-3 sm:p-5 md:p-6 flex flex-col gap-3 sm:gap-4 overflow-hidden">
+        
         {/* Header Ribbon & Google Sheets Integration Telemetry */}
-        <div className="flex flex-wrap justify-between items-center border-b border-white/10 pb-3 sm:pb-4 gap-3 shrink-0">
+        <div className="flex flex-wrap justify-between items-center border-b border-zinc-800 pb-3 gap-3 shrink-0">
           <div>
-            <span className="text-[10px] sm:text-[11px] font-mono uppercase tracking-[0.3em] text-white/40">Inbound Operations</span>
-            <h1 className="text-base sm:text-xl font-black uppercase tracking-tight">Direct Job Creation Console</h1>
+            <span className="text-[10px] font-mono uppercase tracking-[0.25em] text-zinc-500">Inbound Operations</span>
+            <h1 className="text-sm sm:text-base font-bold uppercase tracking-tight text-zinc-100">Direct Job Creation Console</h1>
           </div>
 
           <div className="flex items-center gap-3">
             <button
               onClick={() => handleSyncGoogleSheets(true)}
               disabled={syncingSheet}
-              className="px-3.5 sm:px-4 py-1.5 sm:py-2 bg-emerald-500/10 border border-emerald-500/40 hover:bg-emerald-500 hover:text-black text-emerald-300 text-[10px] sm:text-xs font-mono font-bold uppercase tracking-wider transition cursor-pointer flex items-center gap-2 disabled:opacity-50"
+              className="px-3.5 py-1.5 bg-emerald-500/10 border border-emerald-500/30 hover:bg-emerald-500 hover:text-zinc-950 text-emerald-400 text-xs font-mono font-bold uppercase tracking-wider rounded-lg transition cursor-pointer flex items-center gap-2 disabled:opacity-50"
             >
-              <span className={`w-2 h-2 rounded-full ${syncingSheet ? 'bg-amber-400 animate-ping' : 'bg-emerald-400'}`}></span>
+              <span className={`w-2 h-2 rounded-full ${syncingSheet ? 'bg-amber-400 animate-ping' : 'bg-emerald-400'}`} />
               {syncingSheet ? 'Syncing Sheets...' : 'Sync Google Sheets'}
             </button>
 
-            <span className="text-[10px] sm:text-xs font-mono uppercase tracking-widest text-white/40 hidden sm:block">
-              {lastSyncTime ? `Last Sync: ${lastSyncTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Auto-Sync Active (60s)'}
+            <span className="text-xs font-mono uppercase tracking-widest text-zinc-500 hidden sm:block">
+              {lastSyncTime ? `Last Sync: ${lastSyncTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Auto-Sync Active (5m)'}
             </span>
           </div>
         </div>
 
         {message && (
-          <div className="p-3 sm:p-3.5 border border-white/20 bg-white/[0.02] text-xs sm:text-sm font-mono uppercase tracking-widest text-emerald-400 shrink-0">
-            [SYS_LOG] {message}
+          <div className="px-4 py-2.5 rounded-lg border border-emerald-500/30 bg-emerald-950/30 text-xs font-mono uppercase tracking-widest text-emerald-400 shrink-0 flex items-center justify-between">
+            <span className="flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-emerald-400 animate-ping" />
+              [SYS_LOG] {message}
+            </span>
+            <button onClick={() => setMessage('')} className="text-zinc-400 hover:text-zinc-200 text-xs">✕</button>
           </div>
         )}
 
-        <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 overflow-y-auto lg:overflow-hidden">
+        <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-4 overflow-hidden">
+          
           {/* LEFT: FORM (7 Cols) */}
-          <div className="lg:col-span-7 border border-white/10 bg-white/[0.01] p-4 sm:p-6 flex flex-col h-fit lg:h-full lg:overflow-y-auto space-y-4 sm:space-y-5">
-            <div className="flex justify-between items-center border-b border-white/10 pb-3 sm:pb-4 shrink-0">
-              <span className="text-xs sm:text-sm font-black uppercase tracking-widest text-white">Create Field Directive</span>
+          <div className="lg:col-span-7 rounded-xl border border-zinc-800/80 bg-zinc-900/40 p-4 sm:p-5 flex flex-col h-full overflow-y-auto custom-scrollbar space-y-3 sm:space-y-4">
+            
+            <div className="flex justify-between items-center border-b border-zinc-800 pb-3 shrink-0">
+              <span className="text-xs font-bold uppercase tracking-wider text-zinc-200">Create Field Directive</span>
               <select
                 value={taskType}
                 onChange={(e) => setTaskType(e.target.value)}
-                className="bg-black border border-white/20 px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-mono font-bold uppercase text-white focus:outline-none focus:border-white"
+                className="bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-1.5 text-xs font-mono font-bold uppercase text-zinc-200 focus:outline-none focus:border-zinc-600"
               >
                 <option value="REPAIR">REPAIR</option>
                 <option value="INSTALLATION">INSTALLATION</option>
@@ -342,33 +329,33 @@ export default function CSRPage() {
             </div>
 
             {/* Quick Paste Buffer */}
-            <div className="border border-white/10 bg-black p-3.5 sm:p-4 space-y-2.5 sm:space-y-3 font-mono shrink-0">
+            <div className="border border-zinc-800 rounded-lg bg-zinc-950 p-3 space-y-2 font-mono shrink-0">
               <div className="flex justify-between items-center">
-                <label className="text-[10px] sm:text-[11px] uppercase tracking-widest text-white/40 font-bold">
-                  Quick Paste-to-Task Parser (Viber / Messenger Log)
+                <label className="text-[10px] uppercase tracking-widest text-zinc-400 font-bold">
+                  Quick Parser (Viber / Messenger Log)
                 </label>
                 <button
                   type="button"
                   onClick={handleAutoFill}
-                  className="px-2.5 sm:px-3 py-1 border border-white/20 text-[9px] sm:text-[10px] uppercase tracking-widest font-bold hover:bg-white hover:text-black transition cursor-pointer"
+                  className="px-2.5 py-1 rounded border border-zinc-700 bg-zinc-900 text-[10px] uppercase tracking-widest font-bold text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100 transition cursor-pointer"
                 >
                   Auto-Extract
                 </button>
               </div>
               <textarea
-                rows={4}
+                rows={3}
                 value={rawReport}
                 onChange={(e) => setRawReport(e.target.value)}
-                placeholder="Paste Viber/Messenger dump (Name, Phone, Address, NAP/Port) or a single Client ID/Account # and click Auto-Extract..."
-                className="w-full bg-white/[0.02] border border-white/10 p-2.5 sm:p-3 text-xs sm:text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-white font-mono"
+                placeholder="Paste Viber/Messenger dump (Name, Phone, Address, NAP/Port) or ID and click Auto-Extract..."
+                className="w-full bg-zinc-900 border border-zinc-800 rounded p-2.5 text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-zinc-600 font-mono resize-none"
               />
             </div>
 
             {/* Directive Form & Autocomplete Container */}
-            <form onSubmit={handleCreateTask} className="space-y-3.5 sm:space-y-4 font-mono relative" ref={searchContainerRef}>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+            <form onSubmit={handleCreateTask} className="space-y-3 font-mono relative" ref={searchContainerRef}>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[10px] sm:text-[11px] uppercase tracking-widest text-white/40 mb-1.5 font-bold">Account Number</label>
+                  <label className="block text-[10px] uppercase tracking-widest text-zinc-400 mb-1 font-bold">Account Number</label>
                   <input
                     type="text"
                     value={accountNumber}
@@ -377,11 +364,11 @@ export default function CSRPage() {
                       searchClients(e.target.value);
                     }}
                     placeholder="Enter Account Number"
-                    className="w-full px-3.5 sm:px-4 py-2 sm:py-2.5 bg-black border border-white/10 text-xs sm:text-sm text-white uppercase focus:outline-none focus:border-white"
+                    className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-zinc-200 uppercase focus:outline-none focus:border-zinc-600"
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] sm:text-[11px] uppercase tracking-widest text-white/40 mb-1.5 font-bold">Client ID</label>
+                  <label className="block text-[10px] uppercase tracking-widest text-zinc-400 mb-1 font-bold">Client ID</label>
                   <input
                     type="text"
                     value={clientId}
@@ -390,15 +377,15 @@ export default function CSRPage() {
                       searchClients(e.target.value);
                     }}
                     placeholder="Enter Client ID"
-                    className="w-full px-3.5 sm:px-4 py-2 sm:py-2.5 bg-black border border-white/10 text-xs sm:text-sm text-white focus:outline-none focus:border-white"
+                    className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-zinc-200 focus:outline-none focus:border-zinc-600"
                   />
                 </div>
               </div>
 
               {/* Client Name with Matched Profile Dropdown */}
               <div className="relative">
-                <label className="block text-[10px] sm:text-[11px] uppercase tracking-widest text-white/40 mb-1.5 font-bold">
-                  Client Full Name * <span className="text-white/30 font-normal">(Type to search database/sheets)</span>
+                <label className="block text-[10px] uppercase tracking-widest text-zinc-400 mb-1 font-bold">
+                  Client Full Name * <span className="text-zinc-600 font-normal">(Type to search database/sheets)</span>
                 </label>
                 <input
                   type="text"
@@ -412,30 +399,30 @@ export default function CSRPage() {
                     if (searchResults.length > 0) setShowDropdown(true);
                   }}
                   placeholder="Enter Client Name to search..."
-                  className="w-full px-3.5 sm:px-4 py-2 sm:py-2.5 bg-black border border-white/10 text-xs sm:text-sm text-white uppercase focus:outline-none focus:border-white font-bold"
+                  className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-zinc-100 uppercase focus:outline-none focus:border-zinc-600 font-bold"
                 />
 
                 {/* Dropdown for Sheets / Database Matches */}
                 {showDropdown && (
-                  <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-black border border-white/20 shadow-2xl max-h-56 overflow-y-auto divide-y divide-white/10">
-                    <div className="p-2 text-[9px] uppercase tracking-widest text-emerald-400 font-bold bg-white/[0.03]">
+                  <div className="absolute top-full left-0 right-0 z-50 mt-1 rounded-lg bg-zinc-900 border border-zinc-700 shadow-2xl max-h-48 overflow-y-auto custom-scrollbar divide-y divide-zinc-800">
+                    <div className="p-2 text-[10px] uppercase tracking-widest text-emerald-400 font-bold bg-zinc-950">
                       Matched Subscribers ({searchResults.length})
                     </div>
                     {searchResults.map((client, idx) => (
                       <div
                         key={idx}
                         onClick={() => handleSelectClient(client)}
-                        className="p-3 hover:bg-white hover:text-black cursor-pointer transition text-xs font-mono group"
+                        className="p-2.5 hover:bg-zinc-800 cursor-pointer transition text-xs font-mono group"
                       >
                         <div className="flex justify-between items-center">
-                          <span className="font-bold uppercase text-white group-hover:text-black">
+                          <span className="font-bold uppercase text-zinc-100 group-hover:text-white">
                             {client.client_name || client.name}
                           </span>
-                          <span className="text-[10px] font-bold text-emerald-400 group-hover:text-black">
+                          <span className="text-[10px] font-bold text-emerald-400">
                             {client.account_number || `ID: ${client.client_id}`}
                           </span>
                         </div>
-                        <div className="text-[11px] text-white/50 group-hover:text-black/70 truncate mt-0.5">
+                        <div className="text-[11px] text-zinc-400 truncate mt-0.5">
                           {client.address} {client.landmark || client.port ? `• ${client.landmark || client.port}` : ''}
                         </div>
                       </div>
@@ -445,59 +432,59 @@ export default function CSRPage() {
               </div>
 
               <div>
-                <label className="block text-[10px] sm:text-[11px] uppercase tracking-widest text-white/40 mb-1.5 font-bold">Contact Link</label>
+                <label className="block text-[10px] uppercase tracking-widest text-zinc-400 mb-1 font-bold">Contact Link</label>
                 <input
                   type="text"
                   value={contactNumber}
                   onChange={(e) => setContactNumber(e.target.value)}
                   placeholder="09XXXXXXXXX"
-                  className="w-full px-3.5 sm:px-4 py-2 sm:py-2.5 bg-black border border-white/10 text-xs sm:text-sm text-white focus:outline-none focus:border-white"
+                  className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-zinc-200 focus:outline-none focus:border-zinc-600"
                 />
               </div>
 
               <div>
-                <label className="block text-[10px] sm:text-[11px] uppercase tracking-widest text-white/40 mb-1.5 font-bold">Site Address / Location *</label>
+                <label className="block text-[10px] uppercase tracking-widest text-zinc-400 mb-1 font-bold">Site Address / Location *</label>
                 <input
                   type="text"
                   required
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
                   placeholder="Street / Block / Barangay / City"
-                  className="w-full px-3.5 sm:px-4 py-2 sm:py-2.5 bg-black border border-white/10 text-xs sm:text-sm text-white uppercase focus:outline-none focus:border-white"
+                  className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-zinc-200 uppercase focus:outline-none focus:border-zinc-600"
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[10px] sm:text-[11px] uppercase tracking-widest text-white/40 mb-1.5 font-bold">Landmark / Port Details</label>
+                  <label className="block text-[10px] uppercase tracking-widest text-zinc-400 mb-1 font-bold">Landmark / Port Details</label>
                   <input
                     type="text"
                     value={landmark}
                     onChange={(e) => setLandmark(e.target.value)}
                     placeholder="NAP / Port / Pole details"
-                    className="w-full px-3.5 sm:px-4 py-2 sm:py-2.5 bg-black border border-white/10 text-xs sm:text-sm text-white uppercase focus:outline-none focus:border-white"
+                    className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-zinc-200 uppercase focus:outline-none focus:border-zinc-600"
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] sm:text-[11px] uppercase tracking-widest text-white/40 mb-1.5 font-bold">Reported Issue / Notes</label>
+                  <label className="block text-[10px] uppercase tracking-widest text-zinc-400 mb-1 font-bold">Reported Issue / Notes</label>
                   <input
                     type="text"
                     value={issue}
                     onChange={(e) => setIssue(e.target.value)}
                     placeholder="e.g. REDLOS / Fiber Cut"
-                    className="w-full px-3.5 sm:px-4 py-2 sm:py-2.5 bg-black border border-white/10 text-xs sm:text-sm text-white uppercase focus:outline-none focus:border-white"
+                    className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-zinc-200 uppercase focus:outline-none focus:border-zinc-600"
                   />
                 </div>
               </div>
 
-              <label className="flex items-center gap-3 cursor-pointer text-xs sm:text-sm pt-1">
+              <label className="flex items-center gap-2.5 cursor-pointer text-xs pt-1">
                 <input
                   type="checkbox"
                   checked={isUnverified}
                   onChange={(e) => setIsUnverified(e.target.checked)}
-                  className="rounded border-white/30 text-white bg-black focus:ring-0 w-4 h-4"
+                  className="rounded border-zinc-700 text-zinc-100 bg-zinc-900 focus:ring-0 w-3.5 h-3.5"
                 />
-                <span className="text-[11px] sm:text-xs uppercase tracking-widest text-white/60">
+                <span className="text-[10px] uppercase tracking-widest text-zinc-400">
                   Flag as Unverified Account Details
                 </span>
               </label>
@@ -505,7 +492,7 @@ export default function CSRPage() {
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full py-3.5 sm:py-4 bg-white text-black font-black uppercase text-xs sm:text-sm tracking-[0.25em] sm:tracking-[0.3em] hover:bg-white/80 transition cursor-pointer disabled:opacity-50 mt-2"
+                className="w-full py-3 bg-zinc-100 text-zinc-950 font-bold uppercase text-xs tracking-[0.2em] rounded-lg hover:bg-zinc-200 transition cursor-pointer disabled:opacity-50 mt-1"
               >
                 {submitting ? 'Transmitting Directive...' : 'Transmit Field Directive →'}
               </button>
@@ -513,49 +500,49 @@ export default function CSRPage() {
           </div>
 
           {/* RIGHT: RECENT LOGS (5 Cols) */}
-          <div className="lg:col-span-5 border border-white/10 bg-white/[0.01] p-4 sm:p-6 flex flex-col h-[400px] lg:h-full overflow-hidden">
-            <div className="flex justify-between items-center border-b border-white/10 pb-3 sm:pb-4 shrink-0">
+          <div className="lg:col-span-5 rounded-xl border border-zinc-800/80 bg-zinc-900/30 p-4 sm:p-5 flex flex-col h-full overflow-hidden">
+            <div className="flex justify-between items-center border-b border-zinc-800 pb-3 shrink-0">
               <div>
-                <span className="text-[10px] sm:text-[11px] font-mono uppercase tracking-[0.3em] text-white/40">Audit Trail</span>
-                <h3 className="text-sm sm:text-base font-black uppercase tracking-tight">Recent Submissions ({tasks.length})</h3>
+                <span className="text-[10px] font-mono uppercase tracking-[0.25em] text-zinc-500">Audit Trail</span>
+                <h3 className="text-sm font-bold uppercase tracking-tight text-zinc-100">Recent Submissions ({tasks.length})</h3>
               </div>
               <button
                 onClick={loadTasks}
-                className="px-3 py-1.5 border border-white/20 text-xs font-mono uppercase tracking-widest hover:bg-white hover:text-black transition cursor-pointer"
+                className="px-3 py-1 rounded border border-zinc-700 bg-zinc-900 text-xs font-mono uppercase tracking-wider text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100 transition cursor-pointer"
               >
-                Sync
+                Sync Trail
               </button>
             </div>
 
-            <div className="flex-1 min-h-0 overflow-y-auto space-y-2.5 sm:space-y-3 pt-3 sm:pt-4 pr-1">
+            <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar space-y-2.5 pt-3 pr-1">
               {loading ? (
-                <div className="py-16 text-center text-white/40 font-mono text-xs uppercase tracking-widest">
+                <div className="py-16 text-center text-zinc-600 font-mono text-xs uppercase tracking-widest">
                   Loading trail...
                 </div>
               ) : tasks.length === 0 ? (
-                <div className="py-16 text-center text-white/30 font-mono text-xs uppercase tracking-widest">
+                <div className="py-16 text-center text-zinc-600 font-mono text-xs uppercase tracking-widest">
                   No directives logged today.
                 </div>
               ) : (
                 tasks.map((t) => (
-                  <div key={t.task_id} className="p-3.5 sm:p-4 border border-white/10 bg-black hover:border-white/30 transition space-y-2 font-mono">
+                  <div key={t.task_id} className="p-3.5 rounded-lg border border-zinc-800 bg-zinc-950 hover:border-zinc-700 transition space-y-2 font-mono">
                     <div className="flex justify-between items-start">
-                      <span className="font-bold text-emerald-400 text-xs sm:text-sm">{t.task_id}</span>
-                      <span className={`px-2 py-0.5 border text-[9px] sm:text-[10px] font-bold uppercase ${
-                        t.status === 'NEW' ? 'border-white/20 text-white/60' :
-                        t.status === 'ASSIGNED' ? 'border-amber-400/50 text-amber-400' :
-                        t.status === 'IN_PROGRESS' ? 'border-blue-400/50 text-blue-400' :
-                        'border-emerald-400/50 text-emerald-400'
+                      <span className="font-bold text-emerald-400 text-xs">{t.task_id}</span>
+                      <span className={`px-2 py-0.5 rounded border text-[10px] font-bold uppercase ${
+                        t.status === 'NEW' ? 'border-zinc-700 text-zinc-400 bg-zinc-900' :
+                        t.status === 'ASSIGNED' ? 'border-amber-500/30 text-amber-400 bg-amber-950/30' :
+                        t.status === 'IN_PROGRESS' ? 'border-blue-500/30 text-blue-400 bg-blue-950/30' :
+                        'border-emerald-500/30 text-emerald-400 bg-emerald-950/30'
                       }`}>
                         {t.status}
                       </span>
                     </div>
                     <div>
-                      <div className="text-xs sm:text-sm font-bold text-white uppercase">{t.client_name}</div>
-                      <div className="text-[11px] sm:text-xs text-white/50 truncate">{t.address}</div>
+                      <div className="text-xs font-bold text-zinc-100 uppercase">{t.client_name}</div>
+                      <div className="text-[11px] text-zinc-400 truncate">{t.address}</div>
                     </div>
-                    <div className="text-[10px] text-white/40 pt-2 border-t border-white/5 flex justify-between">
-                      <span className="uppercase font-bold">{t.task_type}</span>
+                    <div className="text-[10px] text-zinc-500 pt-2 border-t border-zinc-900 flex justify-between">
+                      <span className="uppercase font-bold text-zinc-400">{t.task_type}</span>
                       <span>{new Date(t.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                     </div>
                   </div>

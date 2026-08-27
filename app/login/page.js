@@ -26,7 +26,7 @@ export default function LoginPage() {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ identifier, password }),
+        body: JSON.stringify({ identifier: identifier.trim(), password }),
       });
 
       const data = await res.json();
@@ -99,48 +99,49 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white flex flex-col justify-between p-6 md:p-12 relative overflow-hidden font-sans">
-      {/* Background Matrix Grid */}
+    <div className="h-[100dvh] w-screen bg-zinc-950 text-zinc-100 flex flex-col justify-between p-4 sm:p-6 md:p-8 relative overflow-hidden font-sans select-none">
+      {/* Background Matrix Grid Pattern */}
       <div 
-        className="absolute inset-0 pointer-events-none opacity-20"
+        className="absolute inset-0 pointer-events-none opacity-25"
         style={{
-          backgroundImage: 'linear-gradient(to right, rgba(255,255,255,0.08) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.08) 1px, transparent 1px)',
-          backgroundSize: '40px 40px'
+          backgroundImage: 'linear-gradient(to right, rgba(255,255,255,0.05) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.05) 1px, transparent 1px)',
+          backgroundSize: '32px 32px'
         }}
       />
 
       {/* Top Header Bar */}
-      <div className="relative z-10 flex justify-between items-start border-b border-white/10 pb-6">
+      <header className="relative z-10 flex justify-between items-center border-b border-zinc-800 pb-3 shrink-0">
         <div>
-          <span className="text-[10px] uppercase tracking-[0.3em] font-black text-white">System Access</span>
-          <p className="text-[9px] font-mono text-white/40 tracking-widest uppercase mt-0.5">AUTH-PORT // 8080</p>
+          <span className="text-[10px] uppercase tracking-[0.25em] font-bold text-zinc-300">System Access Node</span>
+          <p className="text-[9px] font-mono text-zinc-500 tracking-widest uppercase">AUTH-PORT // 8080</p>
         </div>
         <div className="flex items-center gap-2">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-          <span className="text-[9px] uppercase tracking-[0.2em] font-bold text-white/50">SECURE GATEWAY</span>
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+          <span className="text-[10px] uppercase tracking-[0.2em] font-mono font-bold text-zinc-400">SECURE GATEWAY</span>
         </div>
-      </div>
+      </header>
 
-      {/* Central Login Container */}
-      <div className="relative z-10 max-w-md w-full mx-auto my-12">
-        <div className="border border-white/10 bg-black p-8 md:p-10 space-y-6">
+      {/* Central Login Card */}
+      <main className="relative z-10 max-w-sm w-full mx-auto my-auto py-4">
+        <div className="rounded-xl border border-zinc-800/80 bg-zinc-900/50 backdrop-blur-md p-6 sm:p-8 space-y-5 shadow-2xl">
           <div>
-            <span className="text-[9px] uppercase tracking-[0.3em] font-bold text-white/40">Terminal Login</span>
-            <h1 className="text-3xl font-black uppercase tracking-tighter text-white mt-1">
-              Dispatch<br /><span className="text-white/30">Matrix</span>
+            <span className="text-[10px] font-mono uppercase tracking-[0.25em] text-emerald-400 font-bold">Terminal Login</span>
+            <h1 className="text-2xl font-bold uppercase tracking-tight text-zinc-100 mt-1">
+              Dispatch<span className="text-zinc-500">Matrix</span>
             </h1>
           </div>
 
           {error && (
-            <div className="p-3 border border-red-500/40 bg-red-950/20 text-red-300 text-xs font-mono uppercase tracking-wider">
-              [Err] {error}
+            <div className="p-3 rounded-lg border border-red-500/30 bg-red-950/30 text-red-400 text-xs font-mono uppercase tracking-wider flex items-center justify-between">
+              <span>[ERR] {error}</span>
+              <button onClick={() => setError('')} className="text-zinc-400 hover:text-zinc-200">✕</button>
             </div>
           )}
 
-          <form onSubmit={handleLogin} className="space-y-4">
+          <form onSubmit={handleLogin} className="space-y-3.5">
             <div>
-              <label className="block text-[9px] uppercase tracking-[0.25em] font-black text-white/50 mb-2">
-                Identifier // Tech ID
+              <label className="block text-[10px] uppercase tracking-widest font-bold text-zinc-400 mb-1.5 font-mono">
+                Identifier // Operative ID
               </label>
               <input
                 type="text"
@@ -148,12 +149,12 @@ export default function LoginPage() {
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
                 placeholder="admin@dms.local or T-0001"
-                className="w-full bg-white/[0.03] border border-white/10 px-4 py-3 text-xs text-white placeholder:text-white/20 focus:outline-none focus:border-white focus:bg-white/[0.06] transition-all font-mono"
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3.5 py-2.5 text-xs text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:border-zinc-500 font-mono transition-colors"
               />
             </div>
 
             <div>
-              <label className="block text-[9px] uppercase tracking-[0.25em] font-black text-white/50 mb-2">
+              <label className="block text-[10px] uppercase tracking-widest font-bold text-zinc-400 mb-1.5 font-mono">
                 Access Security Key
               </label>
               <input
@@ -162,64 +163,68 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full bg-white/[0.03] border border-white/10 px-4 py-3 text-xs text-white placeholder:text-white/20 focus:outline-none focus:border-white focus:bg-white/[0.06] transition-all font-mono"
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3.5 py-2.5 text-xs text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:border-zinc-500 font-mono transition-colors"
               />
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full mt-4 py-3.5 bg-white text-black font-black uppercase text-xs tracking-[0.3em] hover:bg-white/80 transition-all duration-300 cursor-pointer disabled:opacity-50"
+              className="w-full mt-2 py-3 bg-zinc-100 text-zinc-950 font-bold uppercase text-xs tracking-[0.2em] rounded-lg hover:bg-zinc-200 transition-colors cursor-pointer disabled:opacity-50"
             >
               {loading ? 'Authenticating...' : 'Establish Session →'}
             </button>
           </form>
         </div>
-      </div>
+      </main>
 
-      {/* Footer Info */}
-      <div className="relative z-10 flex flex-col sm:flex-row justify-between items-center gap-4 border-t border-white/10 pt-6 text-[9px] font-mono text-white/30 uppercase tracking-widest">
+      {/* Footer Audit Notice */}
+      <footer className="relative z-10 flex flex-col sm:flex-row justify-between items-center gap-2 border-t border-zinc-800 pt-3 text-[10px] font-mono text-zinc-500 uppercase tracking-wider shrink-0">
         <span>© 2026 FiberOps Grid</span>
-        <span>All authentication attempts are cryptographically audited</span>
-      </div>
+        <span>Cryptographically Audited Environment</span>
+      </footer>
 
       {/* Mandatory Change Password Modal */}
       {showPasswordModal && (
-        <div className="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 z-50">
-          <div className="max-w-md w-full border border-white/20 bg-black p-8 space-y-6">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-150">
+          <div className="max-w-md w-full rounded-xl border border-zinc-800 bg-zinc-900 p-6 space-y-4 shadow-2xl">
             <div>
-              <span className="text-[9px] font-mono uppercase tracking-[0.3em] text-amber-400">Security Requirement</span>
-              <h3 className="text-xl font-black uppercase tracking-tight text-white mt-1">Update Default PIN</h3>
-              <p className="text-xs text-white/50 mt-1">Default credential <code className="text-white font-mono">00000000</code> must be replaced.</p>
+              <span className="text-[10px] font-mono uppercase tracking-widest text-amber-400 font-bold">Security Requirement</span>
+              <h3 className="text-base sm:text-lg font-bold uppercase tracking-tight text-zinc-100 mt-1">Update Default PIN</h3>
+              <p className="text-xs text-zinc-400 mt-1 font-mono">
+                Default credential <code className="text-emerald-400 font-bold">00000000</code> must be replaced before continuing.
+              </p>
             </div>
 
             {changeError && (
-              <div className="p-3 border border-red-500/40 bg-red-950/20 text-red-300 text-xs font-mono uppercase">
+              <div className="p-2.5 rounded-lg border border-red-500/30 bg-red-950/30 text-red-400 text-xs font-mono uppercase">
                 {changeError}
               </div>
             )}
 
-            <form onSubmit={handleChangePassword} className="space-y-4">
+            <form onSubmit={handleChangePassword} className="space-y-3 font-mono">
               <input
                 type="password"
                 required
+                minLength={8}
                 placeholder="New Password (min 8 chars)"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                className="w-full bg-white/[0.03] border border-white/10 px-4 py-3 text-xs text-white placeholder:text-white/20 focus:outline-none focus:border-white font-mono"
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3.5 py-2.5 text-xs text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:border-zinc-500"
               />
               <input
                 type="password"
                 required
+                minLength={8}
                 placeholder="Confirm New Password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                className="w-full bg-white/[0.03] border border-white/10 px-4 py-3 text-xs text-white placeholder:text-white/20 focus:outline-none focus:border-white font-mono"
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3.5 py-2.5 text-xs text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:border-zinc-500"
               />
               <button
                 type="submit"
                 disabled={changeLoading}
-                className="w-full py-3 bg-white text-black font-black uppercase text-xs tracking-[0.2em] hover:bg-white/80 transition-all cursor-pointer"
+                className="w-full py-2.5 bg-zinc-100 text-zinc-950 font-bold uppercase text-xs tracking-wider rounded-lg hover:bg-zinc-200 transition-colors cursor-pointer disabled:opacity-50"
               >
                 {changeLoading ? 'Saving...' : 'Set Key & Proceed'}
               </button>
