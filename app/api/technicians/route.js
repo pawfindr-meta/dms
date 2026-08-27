@@ -1,47 +1,68 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import pool from '@/lib/db';
-import { verifyUserToken, hashPassword } from '@/lib/auth';
+import { verifyUserToken } from '@/lib/auth';
 
-export async function GET() {
-  try {
-    const res = await pool.query(`
-      SELECT tech_id, full_name, contact_number, personnel_type, status, must_change_password, created_at
-      FROM technicians_osp
-      ORDER BY tech_id ASC;
-    `);
-    return NextResponse.json(res.rows);
-  } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-}
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
-export async function POST(request) {
+export async function DELETE(request, { params }) {
   const cookieStore = await cookies();
   const token = cookieStore.get('dms_session')?.value;
   const user = verifyUserToken(token);
 
   if (!user || user.role !== 'MASTER_ADMIN') {
-    return NextResponse.json({ error: 'Unauthorized. Admin access required.' }, { status: 403 });
+    return NextResponse.json(
+      { error: 'Unauthorized. Administrator access required.' },
+      { status: 403 }
+    );
   }
 
-  try {
-    const { tech_id, full_name, contact_number, personnel_type } = await request.json();
+  const { id } = await params;
+  const techId = decodeURIComponent(id).trim().toUpperCase();
 
-    if (!tech_id || !full_name) {
-      return NextResponse.json({ error: 'Tech ID and Full Name are required.' }, { status: 400 });
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // 1. Remove references in tasks table (set to NULL so history stays intact)
+    await client.query(
+      'UPDATE tasks SET completed_by_tech_id = NULL WHERE UPPER(completed_by_tech_id) = $1;',
+      [techId]
+    );
+
+    // 2. Remove operative from any team roster assignments if table exists
+    await client.query(
+      'DELETE FROM team_members WHERE UPPER(tech_id) = $1;',
+      [techId]
+    ).catch(() => null); // Catch if team_members table uses a different schema
+
+    // 3. Delete the technician record
+    const res = await client.query(
+      'DELETE FROM technicians_osp WHERE UPPER(tech_id) = $1 RETURNING tech_id, full_name;',
+      [techId]
+    );
+
+    if (res.rowCount === 0) {
+      await client.query('ROLLBACK');
+      return NextResponse.json({ error: 'Operative account not found.' }, { status: 404 });
     }
 
-    const defaultPinHash = await hashPassword('00000000');
+    await client.query('COMMIT');
 
-    const res = await pool.query(`
-      INSERT INTO technicians_osp (tech_id, full_name, contact_number, personnel_type, password_hash, must_change_password, status)
-      VALUES ($1, $2, $3, $4, $5, TRUE, 'ACTIVE')
-      RETURNING tech_id, full_name, contact_number, personnel_type, status, must_change_password;
-    `, [tech_id.toUpperCase(), full_name, contact_number || null, personnel_type || 'TECHNICIAN', defaultPinHash]);
-
-    return NextResponse.json(res.rows[0], { status: 201 });
+    return NextResponse.json({
+      success: true,
+      deletedTechId: res.rows[0].tech_id,
+      name: res.rows[0].full_name,
+    });
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    await client.query('ROLLBACK');
+    console.error('Delete Operative Error:', error);
+    return NextResponse.json(
+      { error: error.message || 'Failed to remove operative.' },
+      { status: 500 }
+    );
+  } finally {
+    client.release();
   }
 }
