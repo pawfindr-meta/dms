@@ -81,20 +81,20 @@ export default function LoginPage() {
   const routeToDashboard = (role) => {
     switch (role) {
       case 'MASTER_ADMIN':
-        router.push('/admin');
+        window.location.href = '/admin';
         break;
       case 'DISPATCHER':
-        router.push('/dispatcher');
+        window.location.href = '/dispatcher';
         break;
       case 'CSR':
-        router.push('/csr');
+        window.location.href = '/csr';
         break;
       case 'TECHNICIAN':
       case 'OSP':
-        router.push('/field');
+        window.location.href = '/field';
         break;
       default:
-        router.push('/login');
+        window.location.href = '/login';
     }
   };
 

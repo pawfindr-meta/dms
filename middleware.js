@@ -1,12 +1,15 @@
 import { NextResponse } from 'next/server';
 
-// Lightweight edge-compatible JWT payload decoder
 function parseJwtPayload(token) {
   try {
     const parts = token.split('.');
     if (parts.length !== 3) return null;
-    const base64Url = parts[1];
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+
+    let base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    while (base64.length % 4) {
+      base64 += '=';
+    }
+
     const jsonPayload = decodeURIComponent(
       atob(base64)
         .split('')
@@ -65,11 +68,7 @@ export function middleware(request) {
 
     // Redirect authenticated users trying to visit /login
     if (isAuthPage) {
-      if (role === 'MASTER_ADMIN') return NextResponse.redirect(new URL('/admin', request.url));
-      if (role === 'DISPATCHER') return NextResponse.redirect(new URL('/dispatcher', request.url));
-      if (role === 'CSR') return NextResponse.redirect(new URL('/csr', request.url));
-      if (role === 'TECHNICIAN' || role === 'OSP') return NextResponse.redirect(new URL('/field', request.url));
-      return NextResponse.redirect(new URL('/csr', request.url));
+      return NextResponse.redirect(new URL(getDefaultRouteForRole(role), request.url));
     }
 
     // Enforce Route-to-Role Boundaries
