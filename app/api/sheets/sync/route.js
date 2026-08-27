@@ -18,7 +18,7 @@ export async function POST() {
       );
     }
 
-    const url = `https://docs.google.com/spreadsheets/d/$1XcT0BTH0f9FyEd8nHDW3ijK7uKIKSU_QRpNlDx-lI7g/gviz/tq?tqx=out:csv&sheet=GENT`;
+    const url = `https://docs.google.com/spreadsheets/d/1XcT0BTH0f9FyEd8nHDW3ijK7uKIKSU_QRpNlDx-lI7g/gviz/tq?tqx=out:csv&sheet=GENT`;
     const res = await fetch(url, { cache: 'no-store' });
 
     if (!res.ok) {
