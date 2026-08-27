@@ -11,28 +11,34 @@ const sql = neon(process.env.DATABASE_URL);
 
 export async function POST() {
   try {
-    const spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID || process.env.GOOGLE_MASTER_SHEET_ID;
+    const spreadsheetId =
+      process.env.GOOGLE_SHEETS_SPREADSHEET_ID || process.env.GOOGLE_MASTER_SHEET_ID;
 
     if (!spreadsheetId) {
       return NextResponse.json(
-        { error: 'GOOGLE_SHEETS_SPREADSHEET_ID missing in environment variables' },
+        { error: 'GOOGLE_MASTER_SHEET_ID missing in environment variables' },
         { status: 500 }
       );
     }
 
     let auth;
+    const base64Key =
+      process.env.GOOGLE_SERVICE_ACCOUNT_BASE64 ||
+      process.env.GOOGLE_SERVICE_ACCOUNT_KEY_BASE64;
     const keyPath = path.resolve(process.cwd(), 'service-account.json');
 
     // 1. Vercel Production (Base64 Secret)
-    if (process.env.GOOGLE_SERVICE_ACCOUNT_KEY_BASE64) {
-      const decodedJson = Buffer.from(
-        process.env.GOOGLE_SERVICE_ACCOUNT_KEY_BASE64,
-        'base64'
-      ).toString('utf-8');
+    if (base64Key) {
+      const decodedJson = Buffer.from(base64Key.trim(), 'base64').toString('utf-8');
       const credentials = JSON.parse(decodedJson);
 
-      auth = new google.auth.GoogleAuth({
-        credentials,
+      if (credentials.private_key) {
+        credentials.private_key = credentials.private_key.replace(/\\n/g, '\n');
+      }
+
+      auth = new google.auth.JWT({
+        email: credentials.client_email,
+        key: credentials.private_key,
         scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
       });
     } 
