@@ -4,6 +4,9 @@ import pool from '@/lib/db';
 import { verifyUserToken } from '@/lib/auth';
 import { generateDailyTaskId } from '@/lib/idGenerator';
 
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
 // GET list of tasks (filtered by user role)
 export async function GET() {
   const cookieStore = await cookies();
@@ -37,6 +40,7 @@ export async function GET() {
       `;
       params = [user.userId];
     } else if (user.role === 'TECHNICIAN' || user.role === 'OSP') {
+      const techIdentifier = user.techId || user.userId;
       query = `
         SELECT t.*, tm.team_name
         FROM tasks t
@@ -46,7 +50,7 @@ export async function GET() {
           AND t.status IN ('ASSIGNED', 'IN_PROGRESS', 'DELAYED', 'ON_HOLD', 'REASSIGNMENT_REQUESTED')
         ORDER BY t.created_at DESC;
       `;
-      params = [user.userId];
+      params = [techIdentifier];
     }
 
     const res = await pool.query(query, params);
@@ -77,6 +81,7 @@ export async function POST(request) {
       client_password,
       client_id,
       client_name,
+      contact_number,
       address,
       issue,
       landmark,
@@ -102,6 +107,7 @@ export async function POST(request) {
         client_password,
         client_id,
         client_name,
+        contact_number,
         address,
         issue,
         landmark,
@@ -109,7 +115,7 @@ export async function POST(request) {
         created_by_id,
         created_by_role,
         install_details
-      ) VALUES ($1, $2, 'NEW', $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+      ) VALUES ($1, $2, 'NEW', $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
       RETURNING *;
     `;
 
@@ -119,10 +125,11 @@ export async function POST(request) {
       account_number || null,
       client_password || null,
       client_id || null,
-      client_name,
-      address,
-      issue || null,
-      landmark || null,
+      client_name.trim(),
+      contact_number ? contact_number.trim() : null,
+      address.trim(),
+      issue ? issue.trim() : null,
+      landmark ? landmark.trim() : null,
       Boolean(is_unverified),
       user.userId,
       user.role,
