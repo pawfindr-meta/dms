@@ -3,7 +3,9 @@ import { cookies } from 'next/headers';
 import pool from '@/lib/db';
 import { verifyUserToken } from '@/lib/auth';
 
-// DELETE /api/tasks/[id] - Delete a dispatch task
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
 export async function DELETE(request, { params }) {
   const cookieStore = await cookies();
   const token = cookieStore.get('dms_session')?.value;
@@ -17,15 +19,19 @@ export async function DELETE(request, { params }) {
   }
 
   const { id } = await params;
+  const taskId = decodeURIComponent(id).trim();
 
   try {
-    const result = await pool.query('DELETE FROM tasks WHERE id = $1 RETURNING id;', [id]);
+    const result = await pool.query(
+      'DELETE FROM tasks WHERE task_id = $1 RETURNING task_id;',
+      [taskId]
+    );
 
     if (result.rowCount === 0) {
-      return NextResponse.json({ error: 'Task not found.' }, { status: 404 });
+      return NextResponse.json({ error: 'Directive not found.' }, { status: 404 });
     }
 
-    return NextResponse.json({ success: true, deletedTaskId: id });
+    return NextResponse.json({ success: true, deletedTaskId: result.rows[0].task_id });
   } catch (error) {
     console.error('Delete Task Error:', error);
     return NextResponse.json(
