@@ -27,22 +27,17 @@ export async function POST() {
       process.env.GOOGLE_SERVICE_ACCOUNT_KEY_BASE64;
     const keyPath = path.resolve(process.cwd(), 'service-account.json');
 
-    // 1. Vercel Production (Base64 Secret)
+    // 1. Vercel Production
     if (base64Key) {
       const decodedJson = Buffer.from(base64Key.trim(), 'base64').toString('utf-8');
       const credentials = JSON.parse(decodedJson);
 
-      if (credentials.private_key) {
-        credentials.private_key = credentials.private_key.replace(/\\n/g, '\n');
-      }
-
-      auth = new google.auth.JWT({
-        email: credentials.client_email,
-        key: credentials.private_key,
+      auth = new google.auth.GoogleAuth({
+        credentials,
         scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
       });
     } 
-    // 2. Local Development (File fallback)
+    // 2. Local Development Fallback
     else if (fs.existsSync(keyPath)) {
       auth = new google.auth.GoogleAuth({
         keyFile: keyPath,
