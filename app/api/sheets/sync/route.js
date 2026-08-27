@@ -1,8 +1,5 @@
 import { NextResponse } from 'next/server';
 import { neon } from '@neondatabase/serverless';
-import { google } from 'googleapis';
-import path from 'path';
-import fs from 'fs';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -21,39 +18,18 @@ export async function POST() {
       );
     }
 
-    let auth;
-    const base64Key =
-      process.env.GOOGLE_SERVICE_ACCOUNT_BASE64 ||
-      process.env.GOOGLE_SERVICE_ACCOUNT_KEY_BASE64;
-    const keyPath = path.resolve(process.cwd(), 'service-account.json');
+    const url = `https://docs.google.com/spreadsheets/d/$1XcT0BTH0f9FyEd8nHDW3ijK7uKIKSU_QRpNlDx-lI7g/gviz/tq?tqx=out:csv&sheet=GENT`;
+    const res = await fetch(url, { cache: 'no-store' });
 
-    // 1. Vercel Production
-    if (base64Key) {
-      const decodedJson = Buffer.from(base64Key.trim(), 'base64').toString('utf-8');
-      const credentials = JSON.parse(decodedJson);
-
-      auth = new google.auth.GoogleAuth({
-        credentials,
-        scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
-      });
-    } 
-    // 2. Local Development Fallback
-    else if (fs.existsSync(keyPath)) {
-      auth = new google.auth.GoogleAuth({
-        keyFile: keyPath,
-        scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
-      });
-    } else {
+    if (!res.ok) {
       return NextResponse.json(
-        { error: 'No Google Service Account credentials found on server' },
+        { error: `Google Sheets fetch returned status ${res.status}` },
         { status: 500 }
       );
     }
 
-    const sheets = google.sheets({ version: 'v4', auth });
-    const range = "'GENT'!A2:G";
-    const response = await sheets.spreadsheets.values.get({ spreadsheetId, range });
-    const rows = response.data.values || [];
+    const csvText = await res.text();
+    const rows = parseCSV(csvText).slice(1);
 
     const clientMap = new Map();
 
@@ -122,7 +98,30 @@ export async function POST() {
 
     return NextResponse.json({ success: true, importedCount: clientMap.size });
   } catch (err) {
-    console.error('Google Sheets Sync Error:', err);
+    console.error('Sheets Sync Error:', err);
     return NextResponse.json({ error: err.message || 'Sheets sync failed' }, { status: 500 });
   }
+}
+
+function parseCSV(text) {
+  const lines = text.split(/\r?\n/);
+  return lines.map((line) => {
+    const result = [];
+    let current = '';
+    let inQuotes = false;
+
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      if (char === '"') {
+        inQuotes = !inQuotes;
+      } else if (char === ',' && !inQuotes) {
+        result.push(current.trim().replace(/^"|"$/g, '').replace(/""/g, '"'));
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+    result.push(current.trim().replace(/^"|"$/g, '').replace(/""/g, '"'));
+    return result;
+  });
 }
